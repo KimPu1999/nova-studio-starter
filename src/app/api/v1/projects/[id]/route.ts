@@ -1,0 +1,4 @@
+import { authenticateApiRequest, apiError, apiOk, recordApiUsage } from '@/lib/api-v1';
+import { prisma } from '@/lib/prisma';
+
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) { const started = Date.now(); const auth = await authenticateApiRequest(request, 'projects:read'); if (auth.response) return auth.response; const principal = auth.principal!; const { id } = await params; const project = await prisma.workspaceProject.findFirst({ where: { id, workspace: { members: { some: { userId: principal.userId } } } }, include: { aiProject: { select: { id: true, name: true, description: true, schema: true, schemaVersion: true, updatedAt: true } }, workspace: { select: { id: true, name: true, slug: true } } } }); if (!project) return apiError('NOT_FOUND', 'Project not found.', 404, principal.requestId); await recordApiUsage(principal, request, 200, started); return apiOk(project, principal.requestId); }

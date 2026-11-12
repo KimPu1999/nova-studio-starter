@@ -1,0 +1,3 @@
+import Link from 'next/link';
+
+export default function DevelopersPage() { return <main className="container-wide page-pad"><span className="eyebrow">NOVA DEVELOPER PLATFORM</span><h1 className="page-title">Build with the <span className="gradient-text">NOVA API.</span></h1><p className="page-description">Versioned, scoped access to your workspace data. The current release is read-focused and does not expose payment approval operations.</p><div className="mt-10 flex flex-wrap gap-3"><Link href="/developers/docs" className="btn-primary">Read the docs</Link><Link href="/developers/quickstart" className="btn-outline">Quickstart</Link></div></main>; }

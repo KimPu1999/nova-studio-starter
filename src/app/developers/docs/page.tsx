@@ -1,0 +1,3 @@
+import Link from 'next/link';
+
+export default function DeveloperDocsPage() { return <main className="container-wide page-pad max-w-5xl"><span className="eyebrow">API V1</span><h1 className="page-title">Documentation.</h1><div className="mt-8 grid gap-4 md:grid-cols-2"><Link href="/developers/quickstart" className="admin-panel"><h2 className="font-semibold">Quickstart</h2><p className="mt-2 text-sm text-slate-400">Authenticate with a scoped API credential and read your workspace data.</p></Link><Link href="/developers/webhooks" className="admin-panel"><h2 className="font-semibold">Webhooks</h2><p className="mt-2 text-sm text-slate-400">Signature format and replay protection guidance.</p></Link></div></main>; }

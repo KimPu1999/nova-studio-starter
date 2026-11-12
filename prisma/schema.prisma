@@ -124,6 +124,14 @@ enum SecurityIncidentStatus {
   CLOSED
 }
 
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  RETRYING
+  FAILED
+  DEAD_LETTER
+}
+
 enum TemplateStatus {
   DRAFT
   PUBLISHED
@@ -521,6 +529,13 @@ model User {
   reviewedPrivacyRequests      PrivacyRequest[]            @relation("PrivacyReviewer")
   updatedRetentionPolicies     DataRetentionPolicy[]       @relation("RetentionPolicyUpdater")
   securityIncidentEvents       SecurityIncidentEvent[]
+  developerApplications        DeveloperApplication[]
+  oauthAuthorizations          OAuthAuthorization[]
+  oauthTokens                  OAuthTokenRecord[]
+  apiUsageEvents               ApiUsageEvent[]
+  integrationConnections       IntegrationConnection[]
+  developerSandboxes           DeveloperSandbox[]
+  apiAuditEvents               ApiAuditLog[]
 
   @@index([roleId])
 }
@@ -2757,6 +2772,15 @@ model Workspace {
   incidents       SecurityIncident[]
   securityAuditLogs SecurityAuditLog[]
   securitySessions SecuritySession[]
+  developerApplications DeveloperApplication[]
+  apiUsageEvents ApiUsageEvent[]
+  quotaPolicies ApiQuotaPolicy[]
+  webhookEndpoints WebhookEndpoint[]
+  webhookEvents WebhookEvent[]
+  integrationConnections IntegrationConnection[]
+  developerSandboxes DeveloperSandbox[]
+  apiAuditEvents ApiAuditLog[]
+  oauthTokens OAuthTokenRecord[]
 
   @@index([organizationId, updatedAt])
 }
@@ -3249,4 +3273,249 @@ model SecurityIncidentEvent {
   actor       User?            @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([incidentId, createdAt])
+}
+
+model DeveloperApplication {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  workspaceId String?   @db.Uuid
+  name        String
+  description String?
+  status      String    @default("ACTIVE")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  clients     OAuthClient[]
+
+  @@index([userId, status, createdAt])
+  @@index([workspaceId, status, createdAt])
+}
+
+model OAuthClient {
+  id            String              @id @default(uuid()) @db.Uuid
+  applicationId String              @db.Uuid
+  clientId      String              @unique
+  secretHash    String?
+  redirectUris  String[]
+  scopes        String[]
+  clientType    String              @default("PUBLIC")
+  status        String              @default("ACTIVE")
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  application   DeveloperApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  authorizations OAuthAuthorization[]
+  tokens        OAuthTokenRecord[]
+
+  @@index([applicationId, status])
+}
+
+model OAuthAuthorization {
+  id            String      @id @default(uuid()) @db.Uuid
+  clientId      String      @db.Uuid
+  userId        String      @db.Uuid
+  redirectUri   String
+  scope         String[]
+  codeHash      String      @unique
+  codeChallenge String
+  challengeMethod String    @default("S256")
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  createdAt     DateTime    @default(now())
+  client        OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, expiresAt, consumedAt])
+}
+
+model OAuthTokenRecord {
+  id             String      @id @default(uuid()) @db.Uuid
+  clientId       String      @db.Uuid
+  userId         String      @db.Uuid
+  workspaceId    String?     @db.Uuid
+  accessTokenHash String     @unique
+  refreshTokenHash String?   @unique
+  scope          String[]
+  expiresAt      DateTime
+  refreshExpiresAt DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime    @default(now())
+  client         OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt, expiresAt])
+  @@index([workspaceId, revokedAt, expiresAt])
+}
+
+model ApiUsageEvent {
+  id           String        @id @default(uuid()) @db.Uuid
+  userId       String?       @db.Uuid
+  workspaceId  String?       @db.Uuid
+  credentialId String?       @db.Uuid
+  requestId    String        @unique
+  method       String
+  endpoint     String
+  statusCode   Int
+  latencyMs    Int
+  rateLimited  Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  workspace    Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([credentialId, createdAt])
+  @@index([endpoint, statusCode, createdAt])
+}
+
+model ApiQuotaPolicy {
+  id             String    @id @default(uuid()) @db.Uuid
+  workspaceId    String    @db.Uuid
+  requestsPerMinute Int
+  monthlyRequests Int
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId])
+}
+
+model WebhookEndpoint {
+  id          String            @id @default(uuid()) @db.Uuid
+  workspaceId String            @db.Uuid
+  url         String
+  status      String            @default("ACTIVE")
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subscriptions WebhookSubscription[]
+  deliveries  WebhookDelivery[]
+  secrets     WebhookSigningSecret[]
+
+  @@index([workspaceId, status, createdAt])
+}
+
+model WebhookSubscription {
+  id         String          @id @default(uuid()) @db.Uuid
+  endpointId String          @db.Uuid
+  eventType  String
+  version    String          @default("2026-11-12")
+  isActive   Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+  endpoint   WebhookEndpoint  @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@unique([endpointId, eventType, version])
+}
+
+model WebhookEvent {
+  id          String              @id @default(uuid()) @db.Uuid
+  eventId     String              @unique
+  workspaceId String              @db.Uuid
+  eventType   String
+  version     String
+  payload     Json
+  createdAt   DateTime            @default(now())
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  deliveries  WebhookDelivery[]
+
+  @@index([workspaceId, eventType, createdAt])
+}
+
+model WebhookDelivery {
+  id           String               @id @default(uuid()) @db.Uuid
+  eventId      String               @db.Uuid
+  endpointId   String               @db.Uuid
+  status       WebhookDeliveryStatus @default(PENDING)
+  attemptCount Int                  @default(0)
+  nextAttemptAt DateTime?
+  lastStatusCode Int?
+  lastAttemptAt DateTime?
+  deliveredAt  DateTime?
+  createdAt    DateTime             @default(now())
+  event        WebhookEvent         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  endpoint     WebhookEndpoint      @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, endpointId])
+  @@index([status, nextAttemptAt])
+  @@index([endpointId, createdAt])
+}
+
+model WebhookSigningSecret {
+  id              String          @id @default(uuid()) @db.Uuid
+  endpointId      String          @db.Uuid
+  secretCiphertext String
+  version         Int             @default(1)
+  revokedAt       DateTime?
+  createdAt       DateTime        @default(now())
+  endpoint        WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId, revokedAt, createdAt])
+}
+
+model IntegrationConnection {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @db.Uuid
+  workspaceId    String?   @db.Uuid
+  provider       String
+  encryptedToken String
+  scopes         String[]
+  status         String    @default("ACTIVE")
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, provider, status])
+  @@index([workspaceId, provider, status])
+}
+
+model DeveloperSandbox {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  workspaceId String?   @db.Uuid
+  name        String
+  keyPrefix   String
+  keyHash     String    @unique
+  quota       Int       @default(1000)
+  used        Int       @default(0)
+  status      String    @default("ACTIVE")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([workspaceId, status])
+}
+
+model ApiAuditLog {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String?   @db.Uuid
+  workspaceId String?   @db.Uuid
+  action      String
+  endpoint    String?
+  requestId   String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([action, createdAt])
+}
+
+model ApiIdempotencyRecord {
+  id            String   @id @default(uuid()) @db.Uuid
+  principalKey  String
+  operation     String
+  idempotencyKey String
+  payloadHash   String
+  statusCode    Int
+  response      Json
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  @@unique([principalKey, operation, idempotencyKey])
+  @@index([expiresAt])
 }
