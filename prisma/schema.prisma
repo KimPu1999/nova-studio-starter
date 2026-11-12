@@ -135,6 +135,48 @@ enum ThemeMode {
   LIGHT
   SYSTEM
 }
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+enum LessonType {
+  VIDEO
+  ARTICLE
+  QUIZ
+  ASSIGNMENT
+}
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  REVOKED
+}
+enum CoursePurchaseStatus {
+  PENDING_PAYMENT
+  PAYMENT_REVIEW
+  PAID
+  CANCELLED
+  REFUNDED
+}
+enum QuizQuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+}
+enum AssignmentSubmissionStatus {
+  SUBMITTED
+  GRADING
+  GRADED
+  RETURNED
+}
+enum CertificateStatus {
+  ACTIVE
+  REVOKED
+}
+enum CourseReviewStatus {
+  ACTIVE
+  HIDDEN
+}
 
 model User {
   id           String       @id @default(uuid()) @db.Uuid
@@ -175,10 +217,296 @@ model User {
   siteRevisions SiteRevision[]
   projectApprovals ProjectApproval[] @relation("ApprovalActor")
   notifications Notification[]
+  taughtCourses Course[] @relation("CourseInstructor")
+  courseEnrollments CourseEnrollment[]
+  coursePurchases CoursePurchase[] @relation("CourseBuyer")
+  reviewedCoursePurchases CoursePurchase[] @relation("CoursePurchaseReviewer")
+  lessonProgress LessonProgress[]
+  quizAttempts QuizAttempt[]
+  assignmentSubmissions AssignmentSubmission[]
+  courseCertificates CourseCertificate[]
+  courseReviews CourseReview[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   lastLoginAt  DateTime?
   @@index([roleId])
+}
+
+model CourseCategory {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  courses     Course[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([createdAt])
+}
+
+model Course {
+  id                         String              @id @default(uuid()) @db.Uuid
+  title                      String
+  slug                       String              @unique
+  description                String
+  thumbnailStorageKey        String?
+  categoryId                 String              @db.Uuid
+  instructorId               String              @db.Uuid
+  difficulty                 String              @default("Beginner")
+  language                   String              @default("en")
+  priceMmk                   Int                 @default(0)
+  isFree                     Boolean             @default(true)
+  estimatedDurationMinutes  Int?
+  prerequisites              String[]            @default([])
+  learningOutcomes           String[]            @default([])
+  requirements               String[]            @default([])
+  status                     CourseStatus        @default(DRAFT)
+  isFeatured                 Boolean             @default(false)
+  publishedAt                DateTime?
+  category                   CourseCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  instructor                 User                @relation("CourseInstructor", fields: [instructorId], references: [id], onDelete: Restrict)
+  sections                   CourseSection[]
+  enrollments                CourseEnrollment[]
+  purchases                  CoursePurchase[]
+  reviews                    CourseReview[]
+  certificates               CourseCertificate[]
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+  @@index([status, createdAt])
+  @@index([categoryId, status])
+  @@index([instructorId, status])
+  @@index([isFeatured, status])
+}
+
+model CourseSection {
+  id          String    @id @default(uuid()) @db.Uuid
+  courseId    String    @db.Uuid
+  title       String
+  description String?
+  sortOrder   Int       @default(0)
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  @@index([courseId, sortOrder])
+}
+
+model Lesson {
+  id                     String       @id @default(uuid()) @db.Uuid
+  sectionId              String       @db.Uuid
+  title                  String
+  slug                   String
+  description            String?
+  content                Json?
+  lessonType             LessonType   @default(ARTICLE)
+  videoStorageKey        String?
+  videoDurationSeconds   Int?
+  sortOrder              Int          @default(0)
+  isPreview              Boolean      @default(false)
+  isPublished            Boolean      @default(false)
+  section                CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  resources              LessonResource[]
+  progress               LessonProgress[]
+  quiz                   Quiz?
+  assignment             Assignment?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  @@unique([sectionId, slug])
+  @@index([sectionId, sortOrder])
+  @@index([isPublished, isPreview])
+}
+
+model LessonResource {
+  id          String   @id @default(uuid()) @db.Uuid
+  lessonId    String   @db.Uuid
+  name        String
+  storageKey  String
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  @@index([lessonId, createdAt])
+}
+
+model CourseEnrollment {
+  id             String           @id @default(uuid()) @db.Uuid
+  courseId       String           @db.Uuid
+  studentId      String           @db.Uuid
+  purchaseId     String?          @unique @db.Uuid
+  status         EnrollmentStatus @default(ACTIVE)
+  enrolledAt     DateTime         @default(now())
+  completedAt    DateTime?
+  course         Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student        User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  purchase       CoursePurchase?  @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  progress       LessonProgress[]
+  certificates   CourseCertificate[]
+  @@unique([courseId, studentId])
+  @@index([studentId, status, enrolledAt])
+}
+
+model LessonProgress {
+  id            String           @id @default(uuid()) @db.Uuid
+  enrollmentId  String           @db.Uuid
+  lessonId      String           @db.Uuid
+  studentId     String           @db.Uuid
+  completed     Boolean          @default(false)
+  lastPositionSeconds Int         @default(0)
+  completedAt   DateTime?
+  enrollment    CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson        Lesson           @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  student       User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@unique([enrollmentId, lessonId])
+  @@index([studentId, completed])
+}
+
+model Quiz {
+  id            String         @id @default(uuid()) @db.Uuid
+  lessonId      String         @unique @db.Uuid
+  instructions  String?
+  timeLimitSeconds Int?
+  passingScore  Int            @default(70)
+  attemptLimit  Int            @default(3)
+  randomize     Boolean        @default(false)
+  lesson        Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  questions     QuizQuestion[]
+  attempts      QuizAttempt[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model QuizQuestion {
+  id             String           @id @default(uuid()) @db.Uuid
+  quizId         String           @db.Uuid
+  prompt         String
+  questionType   QuizQuestionType
+  options        Json
+  correctAnswer  Json
+  points         Int              @default(1)
+  sortOrder      Int              @default(0)
+  quiz           Quiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers        QuizAnswer[]
+  @@index([quizId, sortOrder])
+}
+
+model QuizAttempt {
+  id            String       @id @default(uuid()) @db.Uuid
+  quizId        String       @db.Uuid
+  studentId     String       @db.Uuid
+  attemptNumber Int
+  score         Int?
+  passed        Boolean      @default(false)
+  startedAt     DateTime     @default(now())
+  submittedAt   DateTime?
+  quiz          Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  student       User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers       QuizAnswer[]
+  @@unique([quizId, studentId, attemptNumber])
+  @@index([studentId, submittedAt])
+}
+
+model QuizAnswer {
+  id           String       @id @default(uuid()) @db.Uuid
+  attemptId    String       @db.Uuid
+  questionId   String       @db.Uuid
+  answer       Json
+  isCorrect    Boolean?
+  pointsEarned Int          @default(0)
+  attempt      QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question     QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  @@unique([attemptId, questionId])
+}
+
+model Assignment {
+  id                 String       @id @default(uuid()) @db.Uuid
+  lessonId           String       @unique @db.Uuid
+  instructions       String
+  deadline           DateTime?
+  maxScore           Int          @default(100)
+  allowResubmission  Boolean      @default(true)
+  lesson             Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  submissions        AssignmentSubmission[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+model AssignmentSubmission {
+  id             String                     @id @default(uuid()) @db.Uuid
+  assignmentId   String                     @db.Uuid
+  studentId      String                     @db.Uuid
+  text           String?
+  storageKey     String?
+  fileName       String?
+  mimeType       String?
+  fileSize       Int?
+  status         AssignmentSubmissionStatus @default(SUBMITTED)
+  grade          Int?
+  feedback       String?
+  submittedAt    DateTime                   @default(now())
+  gradedAt       DateTime?
+  assignment     Assignment                 @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student        User                       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@index([assignmentId, studentId, submittedAt])
+}
+
+model CourseCertificate {
+  id             String             @id @default(uuid()) @db.Uuid
+  enrollmentId   String             @db.Uuid
+  studentId      String             @db.Uuid
+  courseId       String             @db.Uuid
+  certificateNumber String          @unique
+  verificationCode String           @unique
+  issuedAt       DateTime           @default(now())
+  status         CertificateStatus  @default(ACTIVE)
+  revokedAt      DateTime?
+  enrollment     CourseEnrollment   @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  student        User               @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  course         Course             @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  @@unique([enrollmentId, courseId])
+  @@index([studentId, issuedAt])
+}
+
+model CourseReview {
+  id          String             @id @default(uuid()) @db.Uuid
+  courseId    String             @db.Uuid
+  studentId   String             @db.Uuid
+  rating      Int
+  title       String
+  content     String
+  status      CourseReviewStatus @default(ACTIVE)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  course      Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student     User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@unique([courseId, studentId])
+  @@index([courseId, status, createdAt])
+}
+
+model CoursePurchase {
+  id                  String               @id @default(uuid()) @db.Uuid
+  purchaseNumber      String               @unique
+  courseId            String               @db.Uuid
+  buyerId             String               @db.Uuid
+  unitPriceMmk        Int
+  currency            String               @default("MMK")
+  status              CoursePurchaseStatus @default(PENDING_PAYMENT)
+  paymentMethodId     String?              @db.Uuid
+  transactionReference String?
+  proofStorageKey     String?
+  proofMimeType       String?
+  idempotencyKey      String               @unique
+  reviewerId          String?              @db.Uuid
+  reviewedAt          DateTime?
+  rejectionReason     String?
+  course              Course               @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  buyer               User                 @relation("CourseBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+  paymentMethod       PaymentMethod?       @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  reviewer            User?                @relation("CoursePurchaseReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  enrollment          CourseEnrollment?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  @@index([courseId, status, createdAt])
+  @@index([buyerId, status, createdAt])
 }
 
 model AdminRole {
@@ -607,6 +935,7 @@ model PaymentMethod {
   displayOrder    Int      @default(0)
   payments        PaymentSubmission[]
   projectPayments ProjectPaymentSubmission[]
+  coursePurchases CoursePurchase[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   @@index([isEnabled, displayOrder])
