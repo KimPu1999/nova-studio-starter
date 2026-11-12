@@ -35,6 +35,26 @@ enum PaymentSubmissionStatus {
   APPROVED
   REJECTED
 }
+enum LicenseStatus {
+  ACTIVE
+  REVOKED
+}
+enum CouponType {
+  FIXED
+  PERCENTAGE
+}
+enum ReviewStatus {
+  ACTIVE
+  HIDDEN
+}
+enum ReportStatus {
+  OPEN
+  RESOLVED
+}
+enum ProductVersionStatus {
+  DRAFT
+  PUBLISHED
+}
 
 model User {
   id           String       @id @default(uuid()) @db.Uuid
@@ -52,6 +72,11 @@ model User {
   downloadEntitlements DownloadEntitlement[]
   downloadEvents DownloadEvent[]
   passwordResetTokens PasswordResetToken[]
+  wishlistItems WishlistItem[]
+  reviews ProductReview[]
+  reviewReports ReviewReport[]
+  licenses CustomerLicense[]
+  couponRedemptions CouponRedemption[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   lastLoginAt  DateTime?
@@ -83,6 +108,12 @@ model Template {
   cartItems     CartItem[]
   orderItems    OrderItem[]
   downloadEntitlements DownloadEntitlement[]
+  licensePrices ProductLicensePrice[]
+  versions ProductVersion[]
+  wishlistItems WishlistItem[]
+  reviews ProductReview[]
+  licenses CustomerLicense[]
+  couponProducts CouponProduct[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   publishedAt   DateTime?
@@ -194,9 +225,12 @@ model CartItem {
   templateId String   @db.Uuid
   cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
   template   Template @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  licenseTypeId String?
+  licenseType ProductLicenseType? @relation(fields: [licenseTypeId], references: [id], onDelete: Restrict)
   createdAt  DateTime @default(now())
   @@unique([cartId, templateId])
   @@index([templateId])
+  @@index([licenseTypeId])
 }
 
 model Order {
@@ -212,10 +246,15 @@ model Order {
   customerEmail   String
   customerPhone   String
   orderNotes      String?
+  couponId        String?
+  couponCode      String?
+  discountMmk     Int           @default(0)
   idempotencyKey  String
   items           OrderItem[]
   payments        PaymentSubmission[]
   entitlements    DownloadEntitlement[]
+  licenses        CustomerLicense[]
+  couponRedemptions CouponRedemption[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   paidAt          DateTime?
@@ -235,9 +274,18 @@ model OrderItem {
   unitPriceMmk   Int
   currency       String    @default("MMK")
   quantity       Int       @default(1)
+  licenseTypeId  String?
+  licenseType    ProductLicenseType? @relation(fields: [licenseTypeId], references: [id], onDelete: SetNull)
+  licenseTypeCode String?
+  licensePriceMmk Int?
+  licenseTermsSnapshot String?
+  licenseAllowedUsageSnapshot String?
+  license CustomerLicense?
+  review ProductReview?
   createdAt      DateTime  @default(now())
   @@unique([orderId, templateSlug])
   @@index([templateId])
+  @@index([licenseTypeId])
 }
 
 model PaymentMethod {
@@ -333,6 +381,186 @@ model PasswordResetToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   @@index([userId, expiresAt])
+}
+
+model ProductLicenseType {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  defaultTerms String
+  defaultAllowedUsage String
+  isActive    Boolean  @default(true)
+  prices      ProductLicensePrice[]
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  licenses    CustomerLicense[]
+  couponLicenses CouponLicenseType[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ProductLicensePrice {
+  id            String   @id @default(uuid()) @db.Uuid
+  productId     String   @db.Uuid
+  licenseTypeId String   @db.Uuid
+  priceMmk      Int
+  licenseTerms  String
+  allowedUsage  String
+  isActive      Boolean  @default(true)
+  product       Template @relation(fields: [productId], references: [id], onDelete: Cascade)
+  licenseType   ProductLicenseType @relation(fields: [licenseTypeId], references: [id], onDelete: Restrict)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@unique([productId, licenseTypeId])
+  @@index([productId, isActive])
+}
+
+model CustomerLicense {
+  id             String        @id @default(uuid()) @db.Uuid
+  productId      String        @db.Uuid
+  licenseTypeId  String        @db.Uuid
+  orderId        String        @db.Uuid
+  orderItemId    String        @unique @db.Uuid
+  customerId     String        @db.Uuid
+  priceMmk       Int
+  licenseTerms   String
+  allowedUsage   String
+  licenseKey     String        @unique
+  status         LicenseStatus @default(ACTIVE)
+  issuedAt       DateTime      @default(now())
+  revokedAt      DateTime?
+  revocationReason String?
+  product        Template      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  licenseType    ProductLicenseType @relation(fields: [licenseTypeId], references: [id], onDelete: Restrict)
+  order          Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderItem      OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  customer       User          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  @@index([customerId, status, createdAt])
+  @@index([productId, status])
+}
+
+model ProductVersion {
+  id            String              @id @default(uuid()) @db.Uuid
+  productId     String              @db.Uuid
+  versionNumber String
+  changelog     String
+  releaseNotes  String?
+  releaseDate   DateTime            @default(now())
+  status        ProductVersionStatus @default(DRAFT)
+  updatePolicy  String              @default("ACTIVE_LICENSE")
+  product       Template            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  files         ProductVersionFile[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  @@unique([productId, versionNumber])
+  @@index([productId, status, releaseDate])
+}
+
+model ProductVersionFile {
+  id          String         @id @default(uuid()) @db.Uuid
+  versionId   String         @unique @db.Uuid
+  storageKey  String
+  fileSize    Int
+  checksum    String
+  version     ProductVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model Coupon {
+  id                 String          @id @default(uuid()) @db.Uuid
+  code               String          @unique
+  type               CouponType
+  amount             Int
+  startsAt           DateTime?
+  expiresAt          DateTime?
+  maxUsageCount      Int?
+  perCustomerLimit   Int?
+  minimumOrderMmk    Int             @default(0)
+  isActive           Boolean         @default(true)
+  products           CouponProduct[]
+  licenseTypes       CouponLicenseType[]
+  redemptions        CouponRedemption[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  @@index([isActive, startsAt, expiresAt])
+}
+
+model CouponProduct {
+  couponId  String   @db.Uuid
+  productId String   @db.Uuid
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  product   Template @relation(fields: [productId], references: [id], onDelete: Cascade)
+  @@id([couponId, productId])
+}
+
+model CouponLicenseType {
+  couponId      String             @db.Uuid
+  licenseTypeId String             @db.Uuid
+  coupon        Coupon             @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  licenseType   ProductLicenseType @relation(fields: [licenseTypeId], references: [id], onDelete: Cascade)
+  @@id([couponId, licenseTypeId])
+}
+
+model CouponRedemption {
+  id             String   @id @default(uuid()) @db.Uuid
+  couponId       String   @db.Uuid
+  customerId     String   @db.Uuid
+  orderId        String   @unique @db.Uuid
+  discountMmk    Int
+  redeemedAt     DateTime?
+  releasedAt     DateTime?
+  coupon         Coupon   @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  customer       User     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  @@index([couponId, redeemedAt])
+  @@index([customerId, couponId])
+}
+
+model WishlistItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  customerId String   @db.Uuid
+  productId  String   @db.Uuid
+  customer   User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product    Template @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  @@unique([customerId, productId])
+  @@index([customerId, createdAt])
+}
+
+model ProductReview {
+  id          String       @id @default(uuid()) @db.Uuid
+  productId   String       @db.Uuid
+  customerId  String       @db.Uuid
+  orderItemId String       @unique @db.Uuid
+  rating      Int
+  title       String
+  content     String
+  status      ReviewStatus @default(ACTIVE)
+  product     Template     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customer    User         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orderItem   OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  reports     ReviewReport[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  @@unique([productId, customerId])
+  @@index([productId, status, createdAt])
+}
+
+model ReviewReport {
+  id         String       @id @default(uuid()) @db.Uuid
+  reviewId   String       @db.Uuid
+  reporterId String       @db.Uuid
+  reason     String
+  status     ReportStatus @default(OPEN)
+  review     ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  reporter   User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  createdAt  DateTime     @default(now())
+  resolvedAt DateTime?
+  @@index([status, createdAt])
 }
 
 model LoginAttempt {
