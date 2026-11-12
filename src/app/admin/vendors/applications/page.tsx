@@ -1,0 +1,5 @@
+import Link from 'next/link';
+import {requireAdmin} from '@/lib/auth';
+import {prisma} from '@/lib/prisma';
+export const dynamic='force-dynamic';
+export default async function VendorApplications(){await requireAdmin();const rows=await prisma.vendorApplication.findMany({orderBy:{createdAt:'desc'},take:100,include:{applicant:true}});return <main className="admin-content"><p className="eyebrow">MARKETPLACE CONTROL</p><h1 className="admin-title">Vendor applications</h1><div className="admin-panel mt-8 overflow-x-auto"><table className="admin-table"><thead><tr><th>Store</th><th>Applicant</th><th>Status</th><th>Submitted</th></tr></thead><tbody>{rows.map(row=><tr key={row.id}><td><Link className="text-violet-300" href={`/admin/vendors/applications/${row.id}`}>{row.storeName}</Link><small className="block text-slate-500">{row.storeSlug}</small></td><td>{row.applicant.name}<small className="block text-slate-500">{row.applicant.email}</small></td><td>{row.status}</td><td>{row.createdAt.toLocaleDateString()}</td></tr>)}</tbody></table>{!rows.length&&<p className="admin-empty">No vendor applications.</p>}</div></main>}

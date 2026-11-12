@@ -38,6 +38,7 @@ enum OrderStatus {
 enum PaymentSubmissionStatus {
   PENDING
   APPROVED
+  PUBLISHED
   REJECTED
 }
 
@@ -248,6 +249,53 @@ enum MarketingCampaignStatus {
   CANCELLED
 }
 
+enum VendorApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum VendorProductStatus {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  PUBLISHED
+  REJECTED
+  SUSPENDED
+}
+
+enum VendorMemberRole {
+  VENDOR_OWNER
+  VENDOR_MANAGER
+  VENDOR_EDITOR
+  VENDOR_FINANCE
+}
+
+enum VendorPayoutStatus {
+  REQUESTED
+  UNDER_REVIEW
+  APPROVED
+  PROCESSING
+  PAID
+  REJECTED
+  FAILED
+  CANCELLED
+}
+
+enum VendorLedgerEventType {
+  SALE_CREDIT
+  PLATFORM_COMMISSION
+  REFUND_REVERSAL
+  PAYOUT_RESERVATION
+  PAYOUT_COMPLETION
+  PAYOUT_RELEASE
+  MANUAL_ADJUSTMENT
+}
+
 model User {
   id                            String                     @id @default(uuid()) @db.Uuid
   email                         String                     @unique
@@ -311,6 +359,14 @@ model User {
   analyticsEvents               AnalyticsEvent[]
   marketingConsent              MarketingConsent?
   createdMarketingCampaigns     MarketingCampaign[]        @relation("CampaignCreator")
+  ownedVendorProfiles           VendorProfile[]            @relation("VendorOwner")
+  vendorApplications            VendorApplication[]        @relation("VendorApplicant")
+  reviewedVendorApplications    VendorApplication[]        @relation("VendorReviewer")
+  vendorMemberships             VendorMember[]
+  vendorLedgerEntries           VendorLedgerEntry[]
+  vendorPayoutReviews           VendorPayoutRequest[]      @relation("PayoutReviewer")
+  vendorCommissionRulesCreated  VendorCommissionRule[]
+  confirmedVendorPayouts        VendorPayoutTransaction[]
   createdAt                     DateTime                   @default(now())
   updatedAt                     DateTime                   @updatedAt
   lastLoginAt                   DateTime?
@@ -630,8 +686,11 @@ model Template {
   technology           String[]
   licenseType          String
   status               TemplateStatus        @default(DRAFT)
+  vendorId             String?               @db.Uuid
+  vendorStatus         VendorProductStatus   @default(APPROVED)
   categoryId           String                @db.Uuid
   category             Category              @relation(fields: [categoryId], references: [id])
+  vendor               VendorProfile?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   images               TemplateImage[]
   cartItems            CartItem[]
   orderItems           OrderItem[]
@@ -651,15 +710,17 @@ model Template {
 
   @@index([status, createdAt])
   @@index([categoryId, status])
+  @@index([vendorId, vendorStatus, status])
 }
 
 model Category {
-  id        String     @id @default(uuid()) @db.Uuid
-  name      String     @unique
-  slug      String     @unique
-  templates Template[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id                    String                 @id @default(uuid()) @db.Uuid
+  name                  String                 @unique
+  slug                  String                 @unique
+  templates             Template[]
+  vendorCommissionRules VendorCommissionRule[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 }
 
 model TemplateImage {
@@ -1035,6 +1096,13 @@ model OrderItem {
   licensePriceMmk             Int?
   licenseTermsSnapshot        String?
   licenseAllowedUsageSnapshot String?
+  vendorId                    String?             @db.Uuid
+  vendorNameSnapshot          String?
+  commissionRateBpsSnapshot   Int?
+  platformCommissionMmk       Int?
+  vendorEarningMmk            Int?
+  vendor                      VendorProfile?      @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  vendorEarning               VendorEarning?
   license                     CustomerLicense?
   review                      ProductReview?
   createdAt                   DateTime            @default(now())
@@ -1042,6 +1110,7 @@ model OrderItem {
   @@unique([orderId, templateSlug])
   @@index([templateId])
   @@index([licenseTypeId])
+  @@index([vendorId, createdAt])
 }
 
 model PaymentMethod {
@@ -1708,6 +1777,181 @@ model MarketingCampaign {
 
   @@index([status, startsAt, endsAt])
   @@index([createdById, createdAt])
+}
+
+model VendorProfile {
+  id               String                 @id @default(uuid()) @db.Uuid
+  ownerId          String                 @db.Uuid
+  storeName        String
+  storeSlug        String                 @unique
+  storeDescription String
+  contactEmail     String
+  portfolioUrl     String?
+  logoStorageKey   String?
+  bannerStorageKey String?
+  isVerified       Boolean                @default(false)
+  isSuspended      Boolean                @default(false)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  owner            User                   @relation("VendorOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  applications     VendorApplication[]
+  members          VendorMember[]
+  products         Template[]
+  commissionRules  VendorCommissionRule[]
+  earnings         VendorEarning[]
+  ledgerEntries    VendorLedgerEntry[]
+  payoutAccounts   VendorPayoutAccount[]
+  payoutRequests   VendorPayoutRequest[]
+  orderItems       OrderItem[]
+
+  @@index([ownerId, isSuspended])
+  @@index([isVerified, isSuspended])
+}
+
+model VendorApplication {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  applicantId            String                  @db.Uuid
+  vendorId               String?                 @db.Uuid
+  sellerType             String
+  storeName              String
+  storeSlug              String
+  storeDescription       String
+  contactEmail           String
+  portfolioUrl           String?
+  businessInformation    String?
+  verificationStorageKey String?
+  termsAcceptedAt        DateTime?
+  status                 VendorApplicationStatus @default(DRAFT)
+  reviewerId             String?                 @db.Uuid
+  reviewerNote           String?
+  reviewedAt             DateTime?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  applicant              User                    @relation("VendorApplicant", fields: [applicantId], references: [id], onDelete: Restrict)
+  vendor                 VendorProfile?          @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  reviewer               User?                   @relation("VendorReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([applicantId, status, createdAt])
+  @@index([status, createdAt])
+}
+
+model VendorMember {
+  id         String           @id @default(uuid()) @db.Uuid
+  vendorId   String           @db.Uuid
+  userId     String           @db.Uuid
+  role       VendorMemberRole
+  invitedAt  DateTime         @default(now())
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+  vendor     VendorProfile    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, userId])
+  @@index([userId, revokedAt])
+}
+
+model VendorCommissionRule {
+  id          String         @id @default(uuid()) @db.Uuid
+  vendorId    String?        @db.Uuid
+  categoryId  String?        @db.Uuid
+  rateBps     Int
+  effectiveAt DateTime
+  endedAt     DateTime?
+  reason      String?
+  createdById String         @db.Uuid
+  createdAt   DateTime       @default(now())
+  vendor      VendorProfile? @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  category    Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdBy   User           @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([vendorId, effectiveAt])
+  @@index([categoryId, effectiveAt])
+}
+
+model VendorEarning {
+  id                    String              @id @default(uuid()) @db.Uuid
+  vendorId              String              @db.Uuid
+  orderItemId           String              @unique @db.Uuid
+  grossMmk              Int
+  platformCommissionMmk Int
+  netMmk                Int
+  availableAt           DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  vendor                VendorProfile       @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  orderItem             OrderItem           @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  ledgerEntries         VendorLedgerEntry[]
+
+  @@index([vendorId, availableAt, createdAt])
+}
+
+model VendorLedgerEntry {
+  id             String                @id @default(uuid()) @db.Uuid
+  vendorId       String                @db.Uuid
+  earningId      String?               @db.Uuid
+  actorId        String?               @db.Uuid
+  eventType      VendorLedgerEventType
+  amountMmk      Int
+  sourceType     String
+  sourceId       String
+  idempotencyKey String                @unique
+  reason         String?
+  createdAt      DateTime              @default(now())
+  vendor         VendorProfile         @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  earning        VendorEarning?        @relation(fields: [earningId], references: [id], onDelete: SetNull)
+  actor          User?                 @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@unique([eventType, sourceType, sourceId])
+  @@index([vendorId, createdAt])
+}
+
+model VendorPayoutAccount {
+  id             String                @id @default(uuid()) @db.Uuid
+  vendorId       String                @db.Uuid
+  method         String
+  accountName    String
+  accountNumber  String
+  isActive       Boolean               @default(true)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  vendor         VendorProfile         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  payoutRequests VendorPayoutRequest[]
+
+  @@index([vendorId, isActive])
+}
+
+model VendorPayoutRequest {
+  id             String                   @id @default(uuid()) @db.Uuid
+  vendorId       String                   @db.Uuid
+  accountId      String                   @db.Uuid
+  amountMmk      Int
+  currency       String                   @default("MMK")
+  status         VendorPayoutStatus       @default(REQUESTED)
+  idempotencyKey String                   @unique
+  reviewerId     String?                  @db.Uuid
+  reviewerNote   String?
+  requestedAt    DateTime                 @default(now())
+  reviewedAt     DateTime?
+  paidAt         DateTime?
+  vendor         VendorProfile            @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  account        VendorPayoutAccount      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  reviewer       User?                    @relation("PayoutReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  transaction    VendorPayoutTransaction?
+
+  @@index([vendorId, status, requestedAt])
+}
+
+model VendorPayoutTransaction {
+  id                   String              @id @default(uuid()) @db.Uuid
+  payoutRequestId      String              @unique @db.Uuid
+  amountMmk            Int
+  method               String
+  transactionReference String?
+  confirmedById        String?             @db.Uuid
+  confirmedAt          DateTime?
+  createdAt            DateTime            @default(now())
+  payoutRequest        VendorPayoutRequest @relation(fields: [payoutRequestId], references: [id], onDelete: Cascade)
+  confirmedBy          User?               @relation(fields: [confirmedById], references: [id], onDelete: SetNull)
 }
 
 model SupportCategory {

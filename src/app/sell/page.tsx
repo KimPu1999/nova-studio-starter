@@ -1,0 +1,2 @@
+import Link from 'next/link';
+export default function Sell(){return <main className="site-shell py-20"><div className="mx-auto max-w-3xl text-center"><p className="eyebrow">NOVA SELLERS</p><h1 className="mt-4 text-4xl font-bold tracking-tight">Build your store on NOVA.</h1><p className="mt-5 text-slate-400">Sell quality templates and digital products with centralized moderation, verified payments, and secure customer delivery.</p><Link href="/sell/apply" className="btn-primary mt-8 inline-flex">Apply to become a seller</Link></div></main>}
