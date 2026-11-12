@@ -39,6 +39,34 @@ enum AiMessageRole {
   SYSTEM
 }
 
+enum WebsiteDeploymentStatus {
+  DRAFT
+  QUEUED
+  BUILDING
+  READY
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  ROLLED_BACK
+}
+
+enum WebsiteDomainStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  PROVISIONING
+  ACTIVE
+  FAILED
+  DISCONNECTED
+}
+
+enum HostingSubscriptionStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
 enum TemplateStatus {
   DRAFT
   PUBLISHED
@@ -402,6 +430,12 @@ model User {
   aiSafetyEvents                AiSafetyEvent[]
   aiGenerationJobs              AiGenerationJob[]
   aiRevisionAuthors             AiWebsiteRevision[]
+  hostedWebsites                HostedWebsite[]
+  hostingSubscriptions          HostingSubscription[]
+  hostingInvoices               HostingInvoice[]
+  hostingPayments               HostingPayment[]
+  reviewedHostingPayments       HostingPayment[]       @relation("HostingPaymentReviewer")
+  hostingAuditLogs              WebsiteHostingAuditLog[]
 
   @@index([roleId])
 }
@@ -2288,6 +2322,7 @@ model AiWebsiteProject {
   updatedAt   DateTime            @updatedAt
   user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   revisions   AiWebsiteRevision[]
+  hostedWebsites HostedWebsite[]
 
   @@index([userId, updatedAt])
 }
@@ -2369,5 +2404,216 @@ model AiSafetyEvent {
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([eventType, createdAt])
+  @@index([userId, createdAt])
+}
+
+model HostedWebsite {
+  id              String              @id @default(uuid()) @db.Uuid
+  userId          String              @db.Uuid
+  projectId       String              @db.Uuid
+  name            String
+  slug            String              @unique
+  status          String              @default("DRAFT")
+  activeDeploymentId String?          @unique @db.Uuid
+  deletedAt       DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  user            User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  project         AiWebsiteProject    @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  activeDeployment WebsiteDeployment? @relation("ActiveDeployment", fields: [activeDeploymentId], references: [id], onDelete: SetNull)
+  deployments     WebsiteDeployment[] @relation("WebsiteDeployments")
+  domains         WebsiteDomain[]
+  subscriptions   HostingSubscription[]
+  analyticsEvents WebsiteAnalyticsEvent[]
+  usageRecords    HostingUsageRecord[]
+  auditLogs       WebsiteHostingAuditLog[]
+
+  @@index([userId, updatedAt])
+  @@index([projectId])
+}
+
+model WebsiteDeployment {
+  id          String                  @id @default(uuid()) @db.Uuid
+  websiteId   String                  @db.Uuid
+  revisionId  String                  @db.Uuid
+  number      Int
+  status      WebsiteDeploymentStatus @default(DRAFT)
+  snapshot    Json
+  idempotencyKey String               @unique
+  errorCode   String?
+  createdAt   DateTime                @default(now())
+  publishedAt DateTime?
+  website     HostedWebsite            @relation("WebsiteDeployments", fields: [websiteId], references: [id], onDelete: Cascade)
+  activeFor   HostedWebsite?           @relation("ActiveDeployment")
+  logs        WebsiteDeploymentLog[]
+
+  @@unique([websiteId, number])
+  @@index([websiteId, createdAt])
+  @@index([status, createdAt])
+}
+
+model WebsiteDomain {
+  id             String              @id @default(uuid()) @db.Uuid
+  websiteId      String              @db.Uuid
+  hostname       String              @unique
+  status         WebsiteDomainStatus @default(PENDING_VERIFICATION)
+  verificationToken String?
+  verifiedAt     DateTime?
+  isPrimary      Boolean             @default(false)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  website        HostedWebsite       @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  verification   DomainVerification?
+
+  @@index([websiteId, status])
+}
+
+model DomainVerification {
+  id          String        @id @default(uuid()) @db.Uuid
+  domainId    String        @unique @db.Uuid
+  method      String
+  tokenHash   String
+  checkedAt   DateTime?
+  attempts    Int           @default(0)
+  createdAt   DateTime      @default(now())
+  domain      WebsiteDomain @relation(fields: [domainId], references: [id], onDelete: Cascade)
+}
+
+model WebsiteHostingPlan {
+  id               String   @id @default(uuid()) @db.Uuid
+  code             String   @unique
+  name             String
+  priceMmk         Int
+  websitesLimit    Int
+  customDomainsLimit Int
+  storageLimitMb   Int
+  bandwidthLimitMb Int
+  monthlyVisitsLimit Int
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  subscriptions    HostingSubscription[]
+  invoices         HostingInvoice[]
+}
+
+model HostingSubscription {
+  id             String                     @id @default(uuid()) @db.Uuid
+  userId         String                     @db.Uuid
+  websiteId      String                     @db.Uuid
+  planId         String                     @db.Uuid
+  status         HostingSubscriptionStatus  @default(PENDING_PAYMENT)
+  currency       String                     @default("MMK")
+  priceMmk       Int
+  startsAt       DateTime?
+  renewsAt       DateTime?
+  cancelledAt    DateTime?
+  idempotencyKey String                     @unique
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  user           User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  website        HostedWebsite              @relation(fields: [websiteId], references: [id], onDelete: Restrict)
+  plan           WebsiteHostingPlan         @relation(fields: [planId], references: [id], onDelete: Restrict)
+  invoices       HostingInvoice[]
+
+  @@index([userId, status])
+  @@index([websiteId, status])
+}
+
+model HostingInvoice {
+  id             String              @id @default(uuid()) @db.Uuid
+  invoiceNumber  String              @unique
+  userId         String              @db.Uuid
+  planId         String              @db.Uuid
+  subscriptionId String?             @db.Uuid
+  amountMmk      Int
+  currency       String              @default("MMK")
+  snapshot       Json
+  status         String              @default("ISSUED")
+  dueAt          DateTime
+  createdAt      DateTime            @default(now())
+  user           User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  plan           WebsiteHostingPlan  @relation(fields: [planId], references: [id], onDelete: Restrict)
+  subscription   HostingSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  payments       HostingPayment[]
+
+  @@index([userId, status, createdAt])
+}
+
+model HostingPayment {
+  id             String   @id @default(uuid()) @db.Uuid
+  invoiceId      String   @db.Uuid
+  userId         String   @db.Uuid
+  amountMmk      Int
+  currency       String   @default("MMK")
+  status         String   @default("PENDING")
+  transactionReference String?
+  proofStorageKey String?
+  idempotencyKey String   @unique
+  reviewedAt     DateTime?
+  reviewerId     String?  @db.Uuid
+  createdAt      DateTime @default(now())
+  invoice        HostingInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  reviewer       User?    @relation("HostingPaymentReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId, status])
+  @@index([userId, createdAt])
+}
+
+model HostingUsageRecord {
+  id          String   @id @default(uuid()) @db.Uuid
+  websiteId   String   @db.Uuid
+  periodStart DateTime
+  periodEnd   DateTime
+  websites    Int      @default(1)
+  storageMb   Int      @default(0)
+  bandwidthMb Int      @default(0)
+  visits      Int      @default(0)
+  isEstimated Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  website     HostedWebsite @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+
+  @@unique([websiteId, periodStart, periodEnd])
+  @@index([websiteId, periodStart])
+}
+
+model WebsiteAnalyticsEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  websiteId String   @db.Uuid
+  eventName String
+  path      String
+  source    String?
+  device    String?
+  dedupeKey String?
+  createdAt DateTime @default(now())
+  website   HostedWebsite @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+
+  @@unique([websiteId, dedupeKey])
+  @@index([websiteId, createdAt])
+  @@index([websiteId, path, createdAt])
+}
+
+model WebsiteDeploymentLog {
+  id           String           @id @default(uuid()) @db.Uuid
+  deploymentId String           @db.Uuid
+  level        String
+  message      String
+  createdAt    DateTime         @default(now())
+  deployment   WebsiteDeployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+
+  @@index([deploymentId, createdAt])
+}
+
+model WebsiteHostingAuditLog {
+  id        String        @id @default(uuid()) @db.Uuid
+  websiteId String?       @db.Uuid
+  userId    String         @db.Uuid
+  action    String
+  metadata  Json?
+  createdAt DateTime      @default(now())
+  website   HostedWebsite? @relation(fields: [websiteId], references: [id], onDelete: SetNull)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([websiteId, createdAt])
   @@index([userId, createdAt])
 }
