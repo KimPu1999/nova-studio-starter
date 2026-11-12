@@ -9,7 +9,7 @@ CREATE TYPE "ProjectInvoiceStatus" AS ENUM ('DRAFT','ISSUED','PARTIALLY_PAID','P
 CREATE TYPE "ProjectPaymentStatus" AS ENUM ('PENDING','APPROVED','REJECTED');
 CREATE TYPE "ProjectFileVisibility" AS ENUM ('CLIENT','INTERNAL');
 
-ALTER TABLE "Service" ADD COLUMN "status" "ServiceStatus" NOT NULL DEFAULT 'DRAFT', ADD COLUMN "category" TEXT NOT NULL DEFAULT 'Custom Web Application', ADD COLUMN "includedFeatures" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[], ADD COLUMN "estimatedDeliveryDays" INTEGER, ADD COLUMN "startingPriceMmk" INTEGER, ADD COLUMN "customQuotation" BOOLEAN NOT NULL DEFAULT true, ADD COLUMN "faq" JSONB, ADD COLUMN "ctaText" TEXT;
+ALTER TABLE "Service" ADD COLUMN "status" "ServiceStatus" NOT NULL DEFAULT 'DRAFT', ADD COLUMN "category" TEXT NOT NULL DEFAULT 'Custom Web Application', ADD COLUMN "includedFeatures" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[], ADD COLUMN "estimatedDeliveryDays" INTEGER, ADD COLUMN "startingPriceMmk" INTEGER, ADD COLUMN "customQuotation" BOOLEAN NOT NULL DEFAULT false, ADD COLUMN "faq" JSONB, ADD COLUMN "ctaText" TEXT;
 UPDATE "Service" SET "status"='PUBLISHED' WHERE "isActive"=true;
 CREATE INDEX "Service_status_createdAt_idx" ON "Service"("status","createdAt");
 

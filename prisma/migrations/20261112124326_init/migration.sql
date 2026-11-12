@@ -1,0 +1,3 @@
+-- Recovery migration: the original generated diff incorrectly changed UUID
+-- foreign-key columns to TEXT. The schema now correctly uses @db.Uuid, and
+-- the Phase 4 migration already created these columns with UUID types.
