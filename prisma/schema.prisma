@@ -55,6 +55,71 @@ enum ProductVersionStatus {
   DRAFT
   PUBLISHED
 }
+enum ServiceStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+enum ProjectRequestStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  NEEDS_INFORMATION
+  QUOTED
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+enum ProjectStatus {
+  AWAITING_DEPOSIT
+  PLANNING
+  DESIGN
+  DEVELOPMENT
+  TESTING
+  CLIENT_REVIEW
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+enum ProposalStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  SUPERSEDED
+}
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  READY_FOR_REVIEW
+  APPROVED
+  CHANGES_REQUESTED
+  COMPLETED
+}
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  CHANGES_REQUESTED
+}
+enum ProjectInvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOID
+}
+enum ProjectPaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+enum ProjectFileVisibility {
+  CLIENT
+  INTERNAL
+}
 
 model User {
   id           String       @id @default(uuid()) @db.Uuid
@@ -77,6 +142,21 @@ model User {
   reviewReports ReviewReport[]
   licenses CustomerLicense[]
   couponRedemptions CouponRedemption[]
+  projectRequests ProjectRequest[]
+  clientProjects Project[] @relation("ClientProjects")
+  assignedProjects Project[] @relation("AssignedProjects")
+  assignedRequests ProjectRequest[] @relation("RequestAssignee")
+  createdProposals Proposal[] @relation("ProposalCreator")
+  proposalClients Proposal[] @relation("ProposalClient")
+  proposalAcceptances Proposal[] @relation("ProposalAcceptor")
+  milestoneAssignments ProjectMilestone[] @relation("MilestoneOwner")
+  authoredMessages ProjectMessage[] @relation("MessageAuthor")
+  uploadedProjectFiles ProjectFile[] @relation("FileUploader")
+  clientInvoices ProjectInvoice[] @relation("InvoiceClient")
+  reviewedProjectPayments ProjectPaymentReview[] @relation("ProjectPaymentReviewer")
+  projectPaymentSubmissions ProjectPaymentSubmission[]
+  projectApprovals ProjectApproval[] @relation("ApprovalActor")
+  notifications Notification[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   lastLoginAt  DateTime?
@@ -150,6 +230,14 @@ model Service {
   slug        String   @unique
   description String
   isActive    Boolean  @default(true)
+  status      ServiceStatus @default(DRAFT)
+  category    String    @default("Custom Web Application")
+  includedFeatures String[]
+  estimatedDeliveryDays Int?
+  startingPriceMmk Int?
+  customQuotation Boolean @default(false)
+  faq         Json?
+  ctaText     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -299,6 +387,7 @@ model PaymentMethod {
   isEnabled       Boolean  @default(false)
   displayOrder    Int      @default(0)
   payments        PaymentSubmission[]
+  projectPayments ProjectPaymentSubmission[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   @@index([isEnabled, displayOrder])
@@ -561,6 +650,302 @@ model ReviewReport {
   createdAt  DateTime     @default(now())
   resolvedAt DateTime?
   @@index([status, createdAt])
+}
+
+model ProjectRequest {
+  id                  String              @id @default(uuid()) @db.Uuid
+  requestNumber       String              @unique
+  customerId          String              @db.Uuid
+  assignedAdminId     String?             @db.Uuid
+  status              ProjectRequestStatus @default(DRAFT)
+  companyName         String?
+  websiteType         String
+  title               String
+  description         String
+  requiredPages       String[]
+  requiredFeatures    String[]
+  preferredTechnology String?
+  budgetMinMmk        Int?
+  budgetMaxMmk        Int?
+  desiredDeadline     DateTime?
+  referenceUrls       String[]
+  additionalNotes     String?
+  internalNotes       String?
+  idempotencyKey      String
+  customer            User                @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedAdmin       User?               @relation("RequestAssignee", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  attachments         ProjectRequestAttachment[]
+  proposals           Proposal[]
+  project             Project?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  submittedAt         DateTime?
+  @@unique([customerId, idempotencyKey])
+  @@index([status, createdAt])
+  @@index([customerId, createdAt])
+}
+
+model ProjectRequestAttachment {
+  id          String        @id @default(uuid()) @db.Uuid
+  requestId   String        @db.Uuid
+  storageKey  String
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  request     ProjectRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  @@index([requestId, createdAt])
+}
+
+model Proposal {
+  id                    String         @id @default(uuid()) @db.Uuid
+  proposalNumber        String         @unique
+  requestId             String         @db.Uuid
+  clientId              String         @db.Uuid
+  createdById           String         @db.Uuid
+  acceptedById          String?        @db.Uuid
+  status                ProposalStatus @default(DRAFT)
+  currentVersionNumber  Int            @default(1)
+  acceptedAt            DateTime?
+  acceptedTermsSnapshot String?
+  request               ProjectRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  client                User           @relation("ProposalClient", fields: [clientId], references: [id], onDelete: Restrict)
+  createdBy             User           @relation("ProposalCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  acceptedBy            User?          @relation("ProposalAcceptor", fields: [acceptedById], references: [id], onDelete: SetNull)
+  versions              ProposalVersion[]
+  project               Project?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  @@index([clientId, status, createdAt])
+  @@index([requestId, createdAt])
+}
+
+model ProposalVersion {
+  id                 String    @id @default(uuid()) @db.Uuid
+  proposalId         String    @db.Uuid
+  versionNumber      Int
+  projectScope       String
+  deliverables       String[]
+  technologyStack    String[]
+  estimatedTimeline  String
+  subtotalMmk        Int
+  discountMmk        Int       @default(0)
+  totalMmk           Int
+  paymentSchedule    Json
+  termsAndConditions String
+  expirationDate     DateTime
+  proposal           Proposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  items              ProposalItem[]
+  createdAt          DateTime  @default(now())
+  @@unique([proposalId, versionNumber])
+  @@index([proposalId, createdAt])
+}
+
+model ProposalItem {
+  id          String         @id @default(uuid()) @db.Uuid
+  versionId   String         @db.Uuid
+  description String
+  quantity    Int            @default(1)
+  unitPriceMmk Int
+  totalMmk    Int
+  version     ProposalVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id                   String        @id @default(uuid()) @db.Uuid
+  projectNumber        String        @unique
+  requestId            String        @unique @db.Uuid
+  proposalId           String        @unique @db.Uuid
+  clientId             String        @db.Uuid
+  assignedAdminId      String?       @db.Uuid
+  status               ProjectStatus @default(AWAITING_DEPOSIT)
+  budgetMmk            Int
+  startDate            DateTime?
+  targetCompletionDate DateTime?
+  request              ProjectRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  proposal             Proposal      @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  client               User          @relation("ClientProjects", fields: [clientId], references: [id], onDelete: Restrict)
+  assignedAdmin        User?         @relation("AssignedProjects", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  milestones           ProjectMilestone[]
+  approvals            ProjectApproval[]
+  messages             ProjectMessage[]
+  files                ProjectFile[]
+  invoices             ProjectInvoice[]
+  activities           ProjectActivity[]
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  @@index([status, updatedAt])
+  @@index([clientId, status])
+  @@index([assignedAdminId, status])
+}
+
+model ProjectMilestone {
+  id          String          @id @default(uuid()) @db.Uuid
+  projectId   String          @db.Uuid
+  ownerId     String?         @db.Uuid
+  name        String
+  description String?
+  weight      Int
+  status      MilestoneStatus @default(PENDING)
+  dueDate     DateTime?
+  completedAt DateTime?
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner       User?           @relation("MilestoneOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  approvals   ProjectApproval[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  @@index([projectId, status, dueDate])
+}
+
+model ProjectApproval {
+  id          String         @id @default(uuid()) @db.Uuid
+  projectId   String         @db.Uuid
+  milestoneId String         @db.Uuid
+  actorId     String         @db.Uuid
+  status      ApprovalStatus
+  note        String?
+  actedAt     DateTime       @default(now())
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone  ProjectMilestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  actor      User           @relation("ApprovalActor", fields: [actorId], references: [id], onDelete: Restrict)
+  @@index([projectId, milestoneId, actedAt])
+}
+
+model ProjectMessage {
+  id         String       @id @default(uuid()) @db.Uuid
+  projectId  String       @db.Uuid
+  authorId   String       @db.Uuid
+  body       String
+  readAt     DateTime?
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author     User         @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  attachments ProjectMessageAttachment[]
+  createdAt  DateTime     @default(now())
+  @@index([projectId, createdAt])
+}
+
+model ProjectMessageAttachment {
+  id          String         @id @default(uuid()) @db.Uuid
+  messageId   String         @db.Uuid
+  storageKey  String
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  message     ProjectMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+}
+
+model ProjectFile {
+  id           String              @id @default(uuid()) @db.Uuid
+  projectId    String              @db.Uuid
+  uploadedById String              @db.Uuid
+  category     String
+  version      Int                 @default(1)
+  fileName     String
+  storageKey   String
+  mimeType     String
+  fileSize     Int
+  checksum     String
+  visibility   ProjectFileVisibility @default(CLIENT)
+  project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy   User               @relation("FileUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  events       ProjectFileEvent[]
+  createdAt    DateTime            @default(now())
+  @@index([projectId, category, createdAt])
+}
+
+model ProjectFileEvent {
+  id        String      @id @default(uuid()) @db.Uuid
+  fileId   String      @db.Uuid
+  userId   String      @db.Uuid
+  action    String
+  file      ProjectFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+  @@index([fileId, createdAt])
+}
+
+model ProjectActivity {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @db.Uuid
+  actorId   String?  @db.Uuid
+  action    String
+  metadata  Json?
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@index([projectId, createdAt])
+}
+
+model ProjectInvoice {
+  id          String               @id @default(uuid()) @db.Uuid
+  projectId   String               @db.Uuid
+  clientId    String               @db.Uuid
+  invoiceNumber String             @unique
+  status      ProjectInvoiceStatus @default(DRAFT)
+  subtotalMmk Int
+  totalMmk    Int
+  amountPaidMmk Int                @default(0)
+  dueDate     DateTime?
+  project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  client      User                 @relation("InvoiceClient", fields: [clientId], references: [id], onDelete: Restrict)
+  items       ProjectInvoiceItem[]
+  payments    ProjectPaymentSubmission[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  @@index([projectId, status, dueDate])
+  @@index([clientId, status])
+}
+
+model ProjectInvoiceItem {
+  id          String         @id @default(uuid()) @db.Uuid
+  invoiceId   String         @db.Uuid
+  description String
+  amountMmk   Int
+  invoice     ProjectInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model ProjectPaymentSubmission {
+  id                   String               @id @default(uuid()) @db.Uuid
+  invoiceId            String               @db.Uuid
+  paymentMethodId      String               @db.Uuid
+  submittedById        String               @db.Uuid
+  amountMmk            Int
+  currency             String               @default("MMK")
+  transactionReference String
+  proofStorageKey      String
+  proofMimeType        String
+  status               ProjectPaymentStatus @default(PENDING)
+  idempotencyKey       String               @unique
+  invoice              ProjectInvoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  paymentMethod        PaymentMethod       @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  submittedBy          User               @relation(fields: [submittedById], references: [id], onDelete: Restrict)
+  review               ProjectPaymentReview?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  @@index([invoiceId, status, createdAt])
+}
+
+model ProjectPaymentReview {
+  id              String               @id @default(uuid()) @db.Uuid
+  submissionId    String               @unique @db.Uuid
+  reviewerId      String               @db.Uuid
+  decision        ProjectPaymentStatus
+  rejectionReason String?
+  reviewedAt      DateTime             @default(now())
+  submission      ProjectPaymentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  reviewer        User                 @relation("ProjectPaymentReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+}
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  type      String
+  title     String
+  body      String
+  href      String?
+  readAt    DateTime?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@index([userId, readAt, createdAt])
 }
 
 model LoginAttempt {

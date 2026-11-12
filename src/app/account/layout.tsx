@@ -1,14 +1,2 @@
-import '../admin/admin.css';
-import Link from 'next/link';
-import {Download, Heart, KeyRound, LayoutDashboard, LogOut, ShoppingBag, UserRound} from 'lucide-react';
-import {requireUser} from '@/lib/auth';
-import {customerLogoutAction} from '../customer-actions';
-
-export const dynamic = 'force-dynamic';
-
-export default async function AccountLayout({children}: {children: React.ReactNode}) {
-  const user = await requireUser();
-  return <div className="admin-shell"><aside className="admin-sidebar"><Link href="/" className="brand-mark"><span className="brand-symbol">✳</span> NOVA<span className="text-violet-400">.</span></Link><nav className="mt-12 space-y-2">
-    <Link href="/account"><LayoutDashboard size={17}/>Overview</Link><Link href="/account/orders"><ShoppingBag size={17}/>Orders</Link><Link href="/account/licenses"><KeyRound size={17}/>Licenses</Link><Link href="/account/wishlist"><Heart size={17}/>Wishlist</Link><Link href="/account/downloads"><Download size={17}/>Downloads</Link><Link href="/account/profile"><UserRound size={17}/>Profile</Link>
-  </nav><div className="mt-auto"><p className="truncate text-xs text-slate-500">{user.email}</p><form action={customerLogoutAction}><button className="admin-nav mt-4 w-full"><LogOut size={17}/>Sign out</button></form></div></aside><div className="admin-main"><header className="admin-topbar"><Link href="/templates" className="text-sm text-slate-400">← Marketplace</Link><span className="ml-auto text-sm text-slate-300">{user.name}</span></header>{children}</div></div>;
-}
+import '../admin/admin.css';import Link from 'next/link';import {BriefcaseBusiness,Download,FileText,Heart,KeyRound,LayoutDashboard,LogOut,ShoppingBag,UserRound} from 'lucide-react';import {requireUser} from '@/lib/auth';import {customerLogoutAction} from '../customer-actions';export const dynamic='force-dynamic';
+export default async function AccountLayout({children}:{children:React.ReactNode}){const user=await requireUser();return <div className="admin-shell"><aside className="admin-sidebar"><Link href="/" className="brand-mark"><span className="brand-symbol">✳</span> NOVA<span className="text-violet-400">.</span></Link><nav className="mt-12 space-y-2"><Link href="/account/dashboard"><LayoutDashboard size={17}/>Workspace</Link><Link href="/account/orders"><ShoppingBag size={17}/>Orders</Link><Link href="/account/projects"><BriefcaseBusiness size={17}/>Projects</Link><Link href="/account/proposals"><FileText size={17}/>Proposals</Link><Link href="/account/invoices"><FileText size={17}/>Invoices</Link><Link href="/account/licenses"><KeyRound size={17}/>Licenses</Link><Link href="/account/wishlist"><Heart size={17}/>Wishlist</Link><Link href="/account/downloads"><Download size={17}/>Downloads</Link><Link href="/account/profile"><UserRound size={17}/>Profile</Link></nav><div className="mt-auto"><p className="truncate text-xs text-slate-500">{user.email}</p><form action={customerLogoutAction}><button className="admin-nav mt-4 w-full"><LogOut size={17}/>Sign out</button></form></div></aside><div className="admin-main"><header className="admin-topbar"><Link href="/templates" className="text-sm text-slate-400">← Marketplace</Link><span className="ml-auto text-sm text-slate-300">{user.name}</span></header>{children}</div></div>}

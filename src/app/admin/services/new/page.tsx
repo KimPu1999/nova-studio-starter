@@ -1,0 +1,1 @@
+import Link from 'next/link';import {requireAdmin} from '@/lib/auth';import {ServiceForm} from '../form';export default async function NewService(){await requireAdmin();return <main className="admin-content"><Link href="/admin/services" className="text-sm text-slate-400">← Services</Link><h1 className="admin-title mt-5">New service package</h1><ServiceForm/></main>}
