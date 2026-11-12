@@ -14,16 +14,19 @@ enum RoleCode {
   SUPPORT_AGENT
   CUSTOMER
 }
+
 enum TemplateStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
 }
+
 enum InquiryStatus {
   NEW
   IN_PROGRESS
   CLOSED
 }
+
 enum OrderStatus {
   PENDING_PAYMENT
   PAYMENT_REVIEW
@@ -31,36 +34,44 @@ enum OrderStatus {
   CANCELLED
   REFUNDED
 }
+
 enum PaymentSubmissionStatus {
   PENDING
   APPROVED
   REJECTED
 }
+
 enum LicenseStatus {
   ACTIVE
   REVOKED
 }
+
 enum CouponType {
   FIXED
   PERCENTAGE
 }
+
 enum ReviewStatus {
   ACTIVE
   HIDDEN
 }
+
 enum ReportStatus {
   OPEN
   RESOLVED
 }
+
 enum ProductVersionStatus {
   DRAFT
   PUBLISHED
 }
+
 enum ServiceStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
 }
+
 enum ProjectRequestStatus {
   DRAFT
   SUBMITTED
@@ -71,6 +82,7 @@ enum ProjectRequestStatus {
   DECLINED
   CANCELLED
 }
+
 enum ProjectStatus {
   AWAITING_DEPOSIT
   PLANNING
@@ -82,6 +94,7 @@ enum ProjectStatus {
   ON_HOLD
   CANCELLED
 }
+
 enum ProposalStatus {
   DRAFT
   SENT
@@ -91,6 +104,7 @@ enum ProposalStatus {
   EXPIRED
   SUPERSEDED
 }
+
 enum MilestoneStatus {
   PENDING
   IN_PROGRESS
@@ -99,11 +113,13 @@ enum MilestoneStatus {
   CHANGES_REQUESTED
   COMPLETED
 }
+
 enum ApprovalStatus {
   PENDING
   APPROVED
   CHANGES_REQUESTED
 }
+
 enum ProjectInvoiceStatus {
   DRAFT
   ISSUED
@@ -112,46 +128,55 @@ enum ProjectInvoiceStatus {
   OVERDUE
   VOID
 }
+
 enum ProjectPaymentStatus {
   PENDING
   APPROVED
   REJECTED
 }
+
 enum ProjectFileVisibility {
   CLIENT
   INTERNAL
 }
+
 enum CmsContentStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
 }
+
 enum BlogPostStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
 }
+
 enum ThemeMode {
   DARK
   LIGHT
   SYSTEM
 }
+
 enum CourseStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
 }
+
 enum LessonType {
   VIDEO
   ARTICLE
   QUIZ
   ASSIGNMENT
 }
+
 enum EnrollmentStatus {
   ACTIVE
   COMPLETED
   REVOKED
 }
+
 enum CoursePurchaseStatus {
   PENDING_PAYMENT
   PAYMENT_REVIEW
@@ -159,25 +184,30 @@ enum CoursePurchaseStatus {
   CANCELLED
   REFUNDED
 }
+
 enum QuizQuestionType {
   SINGLE_CHOICE
   MULTIPLE_CHOICE
   TRUE_FALSE
 }
+
 enum AssignmentSubmissionStatus {
   SUBMITTED
   GRADING
   GRADED
   RETURNED
 }
+
 enum CertificateStatus {
   ACTIVE
   REVOKED
 }
+
 enum CourseReviewStatus {
   ACTIVE
   HIDDEN
 }
+
 enum SupportTicketStatus {
   OPEN
   IN_PROGRESS
@@ -185,12 +215,14 @@ enum SupportTicketStatus {
   RESOLVED
   CLOSED
 }
+
 enum SupportPriority {
   LOW
   NORMAL
   HIGH
   URGENT
 }
+
 enum RefundStatus {
   REQUESTED
   UNDER_REVIEW
@@ -200,75 +232,89 @@ enum RefundStatus {
   COMPLETED
   FAILED
 }
+
 enum KnowledgeStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
 }
 
+enum MarketingCampaignStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
 model User {
-  id           String       @id @default(uuid()) @db.Uuid
-  email        String       @unique
-  name         String
-  passwordHash String
-  roleId       String       @db.Uuid
-  role         AdminRole    @relation(fields: [roleId], references: [id])
-  sessions     Session[]
-  auditLogs    AuditLog[]
-  carts        Cart[]
-  orders       Order[]
-  paymentSubmissions PaymentSubmission[]
-  paymentReviews PaymentReview[]
-  downloadEntitlements DownloadEntitlement[]
-  downloadEvents DownloadEvent[]
-  passwordResetTokens PasswordResetToken[]
-  wishlistItems WishlistItem[]
-  reviews ProductReview[]
-  reviewReports ReviewReport[]
-  licenses CustomerLicense[]
-  couponRedemptions CouponRedemption[]
-  projectRequests ProjectRequest[]
-  clientProjects Project[] @relation("ClientProjects")
-  assignedProjects Project[] @relation("AssignedProjects")
-  assignedRequests ProjectRequest[] @relation("RequestAssignee")
-  createdProposals Proposal[] @relation("ProposalCreator")
-  proposalClients Proposal[] @relation("ProposalClient")
-  proposalAcceptances Proposal[] @relation("ProposalAcceptor")
-  milestoneAssignments ProjectMilestone[] @relation("MilestoneOwner")
-  authoredMessages ProjectMessage[] @relation("MessageAuthor")
-  uploadedProjectFiles ProjectFile[] @relation("FileUploader")
-  clientInvoices ProjectInvoice[] @relation("InvoiceClient")
-  reviewedProjectPayments ProjectPaymentReview[] @relation("ProjectPaymentReviewer")
-  projectPaymentSubmissions ProjectPaymentSubmission[]
-  projectFileEvents ProjectFileEvent[]
-  blogPosts BlogPost[]
-  siteRevisions SiteRevision[]
-  projectApprovals ProjectApproval[] @relation("ApprovalActor")
-  notifications Notification[]
-  taughtCourses Course[] @relation("CourseInstructor")
-  courseEnrollments CourseEnrollment[]
-  coursePurchases CoursePurchase[] @relation("CourseBuyer")
-  reviewedCoursePurchases CoursePurchase[] @relation("CoursePurchaseReviewer")
-  lessonProgress LessonProgress[]
-  quizAttempts QuizAttempt[]
-  assignmentSubmissions AssignmentSubmission[]
-  courseCertificates CourseCertificate[]
-  courseReviews CourseReview[]
-  supportTickets SupportTicket[] @relation("TicketCustomer")
-  assignedSupportTickets SupportTicket[] @relation("TicketAgent")
-  supportMessages SupportMessage[]
-  supportAttachments SupportAttachment[]
-  supportAssignments SupportAssignment[] @relation("SupportAgent")
-  assignedSupportTicketsHistory SupportAssignment[] @relation("AssignedBy")
-  supportStatusChanges SupportStatusHistory[]
-  authoredKnowledgeArticles KnowledgeArticle[] @relation("KnowledgeAuthor")
-  supportFeedback SupportFeedback[]
-  refundRequests RefundRequest[] @relation("RefundCustomer")
-  reviewedRefunds RefundRequest[] @relation("RefundReviewer")
-  supportMacros SupportMacro[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  lastLoginAt  DateTime?
+  id                            String                     @id @default(uuid()) @db.Uuid
+  email                         String                     @unique
+  name                          String
+  passwordHash                  String
+  roleId                        String                     @db.Uuid
+  role                          AdminRole                  @relation(fields: [roleId], references: [id])
+  sessions                      Session[]
+  auditLogs                     AuditLog[]
+  carts                         Cart[]
+  orders                        Order[]
+  paymentSubmissions            PaymentSubmission[]
+  paymentReviews                PaymentReview[]
+  downloadEntitlements          DownloadEntitlement[]
+  downloadEvents                DownloadEvent[]
+  passwordResetTokens           PasswordResetToken[]
+  wishlistItems                 WishlistItem[]
+  reviews                       ProductReview[]
+  reviewReports                 ReviewReport[]
+  licenses                      CustomerLicense[]
+  couponRedemptions             CouponRedemption[]
+  projectRequests               ProjectRequest[]
+  clientProjects                Project[]                  @relation("ClientProjects")
+  assignedProjects              Project[]                  @relation("AssignedProjects")
+  assignedRequests              ProjectRequest[]           @relation("RequestAssignee")
+  createdProposals              Proposal[]                 @relation("ProposalCreator")
+  proposalClients               Proposal[]                 @relation("ProposalClient")
+  proposalAcceptances           Proposal[]                 @relation("ProposalAcceptor")
+  milestoneAssignments          ProjectMilestone[]         @relation("MilestoneOwner")
+  authoredMessages              ProjectMessage[]           @relation("MessageAuthor")
+  uploadedProjectFiles          ProjectFile[]              @relation("FileUploader")
+  clientInvoices                ProjectInvoice[]           @relation("InvoiceClient")
+  reviewedProjectPayments       ProjectPaymentReview[]     @relation("ProjectPaymentReviewer")
+  projectPaymentSubmissions     ProjectPaymentSubmission[]
+  projectFileEvents             ProjectFileEvent[]
+  blogPosts                     BlogPost[]
+  siteRevisions                 SiteRevision[]
+  projectApprovals              ProjectApproval[]          @relation("ApprovalActor")
+  notifications                 Notification[]
+  taughtCourses                 Course[]                   @relation("CourseInstructor")
+  courseEnrollments             CourseEnrollment[]
+  coursePurchases               CoursePurchase[]           @relation("CourseBuyer")
+  reviewedCoursePurchases       CoursePurchase[]           @relation("CoursePurchaseReviewer")
+  lessonProgress                LessonProgress[]
+  quizAttempts                  QuizAttempt[]
+  assignmentSubmissions         AssignmentSubmission[]
+  courseCertificates            CourseCertificate[]
+  courseReviews                 CourseReview[]
+  supportTickets                SupportTicket[]            @relation("TicketCustomer")
+  assignedSupportTickets        SupportTicket[]            @relation("TicketAgent")
+  supportMessages               SupportMessage[]
+  supportAttachments            SupportAttachment[]
+  supportAssignments            SupportAssignment[]        @relation("SupportAgent")
+  assignedSupportTicketsHistory SupportAssignment[]        @relation("AssignedBy")
+  supportStatusChanges          SupportStatusHistory[]
+  authoredKnowledgeArticles     KnowledgeArticle[]         @relation("KnowledgeAuthor")
+  supportFeedback               SupportFeedback[]
+  refundRequests                RefundRequest[]            @relation("RefundCustomer")
+  reviewedRefunds               RefundRequest[]            @relation("RefundReviewer")
+  supportMacros                 SupportMacro[]
+  analyticsEvents               AnalyticsEvent[]
+  marketingConsent              MarketingConsent?
+  createdMarketingCampaigns     MarketingCampaign[]        @relation("CampaignCreator")
+  createdAt                     DateTime                   @default(now())
+  updatedAt                     DateTime                   @updatedAt
+  lastLoginAt                   DateTime?
+
   @@index([roleId])
 }
 
@@ -280,37 +326,39 @@ model CourseCategory {
   courses     Course[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
   @@index([createdAt])
 }
 
 model Course {
-  id                         String              @id @default(uuid()) @db.Uuid
-  title                      String
-  slug                       String              @unique
-  description                String
-  thumbnailStorageKey        String?
-  categoryId                 String              @db.Uuid
-  instructorId               String              @db.Uuid
-  difficulty                 String              @default("Beginner")
-  language                   String              @default("en")
-  priceMmk                   Int                 @default(0)
-  isFree                     Boolean             @default(true)
-  estimatedDurationMinutes  Int?
-  prerequisites              String[]            @default([])
-  learningOutcomes           String[]            @default([])
-  requirements               String[]            @default([])
-  status                     CourseStatus        @default(DRAFT)
-  isFeatured                 Boolean             @default(false)
-  publishedAt                DateTime?
-  category                   CourseCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  instructor                 User                @relation("CourseInstructor", fields: [instructorId], references: [id], onDelete: Restrict)
-  sections                   CourseSection[]
-  enrollments                CourseEnrollment[]
-  purchases                  CoursePurchase[]
-  reviews                    CourseReview[]
-  certificates               CourseCertificate[]
-  createdAt                  DateTime            @default(now())
-  updatedAt                  DateTime            @updatedAt
+  id                       String              @id @default(uuid()) @db.Uuid
+  title                    String
+  slug                     String              @unique
+  description              String
+  thumbnailStorageKey      String?
+  categoryId               String              @db.Uuid
+  instructorId             String              @db.Uuid
+  difficulty               String              @default("Beginner")
+  language                 String              @default("en")
+  priceMmk                 Int                 @default(0)
+  isFree                   Boolean             @default(true)
+  estimatedDurationMinutes Int?
+  prerequisites            String[]            @default([])
+  learningOutcomes         String[]            @default([])
+  requirements             String[]            @default([])
+  status                   CourseStatus        @default(DRAFT)
+  isFeatured               Boolean             @default(false)
+  publishedAt              DateTime?
+  category                 CourseCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  instructor               User                @relation("CourseInstructor", fields: [instructorId], references: [id], onDelete: Restrict)
+  sections                 CourseSection[]
+  enrollments              CourseEnrollment[]
+  purchases                CoursePurchase[]
+  reviews                  CourseReview[]
+  certificates             CourseCertificate[]
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+
   @@index([status, createdAt])
   @@index([categoryId, status])
   @@index([instructorId, status])
@@ -318,115 +366,121 @@ model Course {
 }
 
 model CourseSection {
-  id          String    @id @default(uuid()) @db.Uuid
-  courseId    String    @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
+  courseId    String   @db.Uuid
   title       String
   description String?
-  sortOrder   Int       @default(0)
-  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  sortOrder   Int      @default(0)
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lessons     Lesson[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   @@index([courseId, sortOrder])
 }
 
 model Lesson {
-  id                     String       @id @default(uuid()) @db.Uuid
-  sectionId              String       @db.Uuid
-  title                  String
-  slug                   String
-  description            String?
-  content                Json?
-  lessonType             LessonType   @default(ARTICLE)
-  videoStorageKey        String?
-  videoDurationSeconds   Int?
-  sortOrder              Int          @default(0)
-  isPreview              Boolean      @default(false)
-  isPublished            Boolean      @default(false)
-  section                CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  resources              LessonResource[]
-  progress               LessonProgress[]
-  quiz                   Quiz?
-  assignment             Assignment?
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
+  id                   String           @id @default(uuid()) @db.Uuid
+  sectionId            String           @db.Uuid
+  title                String
+  slug                 String
+  description          String?
+  content              Json?
+  lessonType           LessonType       @default(ARTICLE)
+  videoStorageKey      String?
+  videoDurationSeconds Int?
+  sortOrder            Int              @default(0)
+  isPreview            Boolean          @default(false)
+  isPublished          Boolean          @default(false)
+  section              CourseSection    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  resources            LessonResource[]
+  progress             LessonProgress[]
+  quiz                 Quiz?
+  assignment           Assignment?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
   @@unique([sectionId, slug])
   @@index([sectionId, sortOrder])
   @@index([isPublished, isPreview])
 }
 
 model LessonResource {
-  id          String   @id @default(uuid()) @db.Uuid
-  lessonId    String   @db.Uuid
-  name        String
-  storageKey  String
-  fileName    String
-  mimeType    String
-  fileSize    Int
-  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid()) @db.Uuid
+  lessonId   String   @db.Uuid
+  name       String
+  storageKey String
+  fileName   String
+  mimeType   String
+  fileSize   Int
+  lesson     Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
   @@index([lessonId, createdAt])
 }
 
 model CourseEnrollment {
-  id             String           @id @default(uuid()) @db.Uuid
-  courseId       String           @db.Uuid
-  studentId      String           @db.Uuid
-  purchaseId     String?          @unique @db.Uuid
-  status         EnrollmentStatus @default(ACTIVE)
-  enrolledAt     DateTime         @default(now())
+  id             String              @id @default(uuid()) @db.Uuid
+  courseId       String              @db.Uuid
+  studentId      String              @db.Uuid
+  purchaseId     String?             @unique @db.Uuid
+  status         EnrollmentStatus    @default(ACTIVE)
+  enrolledAt     DateTime            @default(now())
   completedAt    DateTime?
-  course         Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  student        User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  purchase       CoursePurchase?  @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  course         Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student        User                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  purchase       CoursePurchase?     @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
   progress       LessonProgress[]
   certificates   CourseCertificate[]
   supportTickets SupportTicket[]
+
   @@unique([courseId, studentId])
   @@index([studentId, status, enrolledAt])
 }
 
 model LessonProgress {
-  id            String           @id @default(uuid()) @db.Uuid
-  enrollmentId  String           @db.Uuid
-  lessonId      String           @db.Uuid
-  studentId     String           @db.Uuid
-  completed     Boolean          @default(false)
-  lastPositionSeconds Int         @default(0)
-  completedAt   DateTime?
-  enrollment    CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  lesson        Lesson           @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  student       User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id                  String           @id @default(uuid()) @db.Uuid
+  enrollmentId        String           @db.Uuid
+  lessonId            String           @db.Uuid
+  studentId           String           @db.Uuid
+  completed           Boolean          @default(false)
+  lastPositionSeconds Int              @default(0)
+  completedAt         DateTime?
+  enrollment          CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson              Lesson           @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  student             User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
   @@unique([enrollmentId, lessonId])
   @@index([studentId, completed])
 }
 
 model Quiz {
-  id            String         @id @default(uuid()) @db.Uuid
-  lessonId      String         @unique @db.Uuid
-  instructions  String?
+  id               String         @id @default(uuid()) @db.Uuid
+  lessonId         String         @unique @db.Uuid
+  instructions     String?
   timeLimitSeconds Int?
-  passingScore  Int            @default(70)
-  attemptLimit  Int            @default(3)
-  randomize     Boolean        @default(false)
-  lesson        Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  questions     QuizQuestion[]
-  attempts      QuizAttempt[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  passingScore     Int            @default(70)
+  attemptLimit     Int            @default(3)
+  randomize        Boolean        @default(false)
+  lesson           Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  questions        QuizQuestion[]
+  attempts         QuizAttempt[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 }
 
 model QuizQuestion {
-  id             String           @id @default(uuid()) @db.Uuid
-  quizId         String           @db.Uuid
-  prompt         String
-  questionType   QuizQuestionType
-  options        Json
-  correctAnswer  Json
-  points         Int              @default(1)
-  sortOrder      Int              @default(0)
-  quiz           Quiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  answers        QuizAnswer[]
+  id            String           @id @default(uuid()) @db.Uuid
+  quizId        String           @db.Uuid
+  prompt        String
+  questionType  QuizQuestionType
+  options       Json
+  correctAnswer Json
+  points        Int              @default(1)
+  sortOrder     Int              @default(0)
+  quiz          Quiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers       QuizAnswer[]
+
   @@index([quizId, sortOrder])
 }
 
@@ -442,6 +496,7 @@ model QuizAttempt {
   quiz          Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
   student       User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
   answers       QuizAnswer[]
+
   @@unique([quizId, studentId, attemptNumber])
   @@index([studentId, submittedAt])
 }
@@ -455,139 +510,145 @@ model QuizAnswer {
   pointsEarned Int          @default(0)
   attempt      QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question     QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
   @@unique([attemptId, questionId])
 }
 
 model Assignment {
-  id                 String       @id @default(uuid()) @db.Uuid
-  lessonId           String       @unique @db.Uuid
-  instructions       String
-  deadline           DateTime?
-  maxScore           Int          @default(100)
-  allowResubmission  Boolean      @default(true)
-  lesson             Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  submissions        AssignmentSubmission[]
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  id                String                 @id @default(uuid()) @db.Uuid
+  lessonId          String                 @unique @db.Uuid
+  instructions      String
+  deadline          DateTime?
+  maxScore          Int                    @default(100)
+  allowResubmission Boolean                @default(true)
+  lesson            Lesson                 @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  submissions       AssignmentSubmission[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 }
 
 model AssignmentSubmission {
-  id             String                     @id @default(uuid()) @db.Uuid
-  assignmentId   String                     @db.Uuid
-  studentId      String                     @db.Uuid
-  text           String?
-  storageKey     String?
-  fileName       String?
-  mimeType       String?
-  fileSize       Int?
-  status         AssignmentSubmissionStatus @default(SUBMITTED)
-  grade          Int?
-  feedback       String?
-  submittedAt    DateTime                   @default(now())
-  gradedAt       DateTime?
-  assignment     Assignment                 @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  student        User                       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id           String                     @id @default(uuid()) @db.Uuid
+  assignmentId String                     @db.Uuid
+  studentId    String                     @db.Uuid
+  text         String?
+  storageKey   String?
+  fileName     String?
+  mimeType     String?
+  fileSize     Int?
+  status       AssignmentSubmissionStatus @default(SUBMITTED)
+  grade        Int?
+  feedback     String?
+  submittedAt  DateTime                   @default(now())
+  gradedAt     DateTime?
+  assignment   Assignment                 @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student      User                       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
   @@index([assignmentId, studentId, submittedAt])
 }
 
 model CourseCertificate {
-  id             String             @id @default(uuid()) @db.Uuid
-  enrollmentId   String             @db.Uuid
-  studentId      String             @db.Uuid
-  courseId       String             @db.Uuid
-  certificateNumber String          @unique
-  verificationCode String           @unique
-  issuedAt       DateTime           @default(now())
-  status         CertificateStatus  @default(ACTIVE)
-  revokedAt      DateTime?
-  enrollment     CourseEnrollment   @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
-  student        User               @relation(fields: [studentId], references: [id], onDelete: Restrict)
-  course         Course             @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  id                String            @id @default(uuid()) @db.Uuid
+  enrollmentId      String            @db.Uuid
+  studentId         String            @db.Uuid
+  courseId          String            @db.Uuid
+  certificateNumber String            @unique
+  verificationCode  String            @unique
+  issuedAt          DateTime          @default(now())
+  status            CertificateStatus @default(ACTIVE)
+  revokedAt         DateTime?
+  enrollment        CourseEnrollment  @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  student           User              @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  course            Course            @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
   @@unique([enrollmentId, courseId])
   @@index([studentId, issuedAt])
 }
 
 model CourseReview {
-  id          String             @id @default(uuid()) @db.Uuid
-  courseId    String             @db.Uuid
-  studentId   String             @db.Uuid
-  rating      Int
-  title       String
-  content     String
-  status      CourseReviewStatus @default(ACTIVE)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  course      Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  student     User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id        String             @id @default(uuid()) @db.Uuid
+  courseId  String             @db.Uuid
+  studentId String             @db.Uuid
+  rating    Int
+  title     String
+  content   String
+  status    CourseReviewStatus @default(ACTIVE)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  course    Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student   User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
   @@unique([courseId, studentId])
   @@index([courseId, status, createdAt])
 }
 
 model CoursePurchase {
-  id                  String               @id @default(uuid()) @db.Uuid
-  purchaseNumber      String               @unique
-  courseId            String               @db.Uuid
-  buyerId             String               @db.Uuid
-  unitPriceMmk        Int
-  currency            String               @default("MMK")
-  status              CoursePurchaseStatus @default(PENDING_PAYMENT)
-  paymentMethodId     String?              @db.Uuid
+  id                   String               @id @default(uuid()) @db.Uuid
+  purchaseNumber       String               @unique
+  courseId             String               @db.Uuid
+  buyerId              String               @db.Uuid
+  unitPriceMmk         Int
+  currency             String               @default("MMK")
+  status               CoursePurchaseStatus @default(PENDING_PAYMENT)
+  paymentMethodId      String?              @db.Uuid
   transactionReference String?
-  proofStorageKey     String?
-  proofMimeType       String?
-  idempotencyKey      String               @unique
-  reviewerId          String?              @db.Uuid
-  reviewedAt          DateTime?
-  rejectionReason     String?
-  course              Course               @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  buyer               User                 @relation("CourseBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
-  paymentMethod       PaymentMethod?       @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
-  reviewer            User?                @relation("CoursePurchaseReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
-  enrollment          CourseEnrollment?
-  refundRequests      RefundRequest[]
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
+  proofStorageKey      String?
+  proofMimeType        String?
+  idempotencyKey       String               @unique
+  reviewerId           String?              @db.Uuid
+  reviewedAt           DateTime?
+  rejectionReason      String?
+  course               Course               @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  buyer                User                 @relation("CourseBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+  paymentMethod        PaymentMethod?       @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  reviewer             User?                @relation("CoursePurchaseReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  enrollment           CourseEnrollment?
+  refundRequests       RefundRequest[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
   @@index([courseId, status, createdAt])
   @@index([buyerId, status, createdAt])
 }
 
 model AdminRole {
-  id          String    @id @default(uuid()) @db.Uuid
-  code        RoleCode  @unique
-  name        String
-  users       User[]
-  createdAt   DateTime  @default(now())
+  id        String   @id @default(uuid()) @db.Uuid
+  code      RoleCode @unique
+  name      String
+  users     User[]
+  createdAt DateTime @default(now())
 }
 
 model Template {
-  id            String          @id @default(uuid()) @db.Uuid
-  slug          String          @unique
-  name          String
-  description   String
-  priceMmk      Int
-  demoUrl       String?
-  thumbnailUrl  String?
-  technology    String[]
-  licenseType   String
-  status        TemplateStatus  @default(DRAFT)
-  categoryId    String          @db.Uuid
-  category      Category        @relation(fields: [categoryId], references: [id])
-  images        TemplateImage[]
-  cartItems     CartItem[]
-  orderItems    OrderItem[]
+  id                   String                @id @default(uuid()) @db.Uuid
+  slug                 String                @unique
+  name                 String
+  description          String
+  priceMmk             Int
+  demoUrl              String?
+  thumbnailUrl         String?
+  technology           String[]
+  licenseType          String
+  status               TemplateStatus        @default(DRAFT)
+  categoryId           String                @db.Uuid
+  category             Category              @relation(fields: [categoryId], references: [id])
+  images               TemplateImage[]
+  cartItems            CartItem[]
+  orderItems           OrderItem[]
   downloadEntitlements DownloadEntitlement[]
-  licensePrices ProductLicensePrice[]
-  versions ProductVersion[]
-  wishlistItems WishlistItem[]
-  reviews ProductReview[]
-  licenses CustomerLicense[]
-  couponProducts CouponProduct[]
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  publishedAt   DateTime?
+  licensePrices        ProductLicensePrice[]
+  versions             ProductVersion[]
+  wishlistItems        WishlistItem[]
+  reviews              ProductReview[]
+  licenses             CustomerLicense[]
+  couponProducts       CouponProduct[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  publishedAt          DateTime?
   sourceFileStorageKey String?
-  sourceFileName String?
-  sourceFileSize Int?
+  sourceFileName       String?
+  sourceFileSize       Int?
+
   @@index([status, createdAt])
   @@index([categoryId, status])
 }
@@ -609,25 +670,26 @@ model TemplateImage {
   altText    String?
   sortOrder  Int      @default(0)
   createdAt  DateTime @default(now())
+
   @@index([templateId, sortOrder])
 }
 
 model Service {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String   @unique
-  slug        String   @unique
-  description String
-  isActive    Boolean  @default(true)
-  status      ServiceStatus @default(DRAFT)
-  category    String    @default("Custom Web Application")
-  includedFeatures String[] @default([])
+  id                    String        @id @default(uuid()) @db.Uuid
+  name                  String        @unique
+  slug                  String        @unique
+  description           String
+  isActive              Boolean       @default(true)
+  status                ServiceStatus @default(DRAFT)
+  category              String        @default("Custom Web Application")
+  includedFeatures      String[]      @default([])
   estimatedDeliveryDays Int?
-  startingPriceMmk Int?
-  customQuotation Boolean @default(false)
-  faq         Json?
-  ctaText     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  startingPriceMmk      Int?
+  customQuotation       Boolean       @default(false)
+  faq                   Json?
+  ctaText               String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
 }
 
 model ShowcaseProject {
@@ -640,6 +702,7 @@ model ShowcaseProject {
   isPublished Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
   @@index([isPublished, createdAt])
 }
 
@@ -652,6 +715,7 @@ model Inquiry {
   status      InquiryStatus @default(NEW)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
   @@index([status, createdAt])
 }
 
@@ -664,92 +728,95 @@ model SiteSetting {
 }
 
 model BrandSetting {
-  id             String   @id @default(uuid()) @db.Uuid
-  singletonKey   String   @unique @default("default")
-  brandName      String   @default("NOVA Studio")
-  brandDescription String?
-  logoStorageKey String?
-  darkLogoStorageKey String?
+  id                  String   @id @default(uuid()) @db.Uuid
+  singletonKey        String   @unique @default("default")
+  brandName           String   @default("NOVA Studio")
+  brandDescription    String?
+  logoStorageKey      String?
+  darkLogoStorageKey  String?
   lightLogoStorageKey String?
-  faviconStorageKey String?
-  primaryColor   String   @default("#8B5CF6")
-  secondaryColor String   @default("#171725")
-  accentColor    String   @default("#22D3EE")
-  updatedAt      DateTime @updatedAt
-  createdAt      DateTime @default(now())
+  faviconStorageKey   String?
+  primaryColor        String   @default("#8B5CF6")
+  secondaryColor      String   @default("#171725")
+  accentColor         String   @default("#22D3EE")
+  updatedAt           DateTime @updatedAt
+  createdAt           DateTime @default(now())
 }
 
 model AppearanceSetting {
-  id             String   @id @default(uuid()) @db.Uuid
-  singletonKey   String   @unique @default("default")
-  mode           ThemeMode @default(DARK)
-  backgroundColor String  @default("#09090F")
-  surfaceColor   String   @default("#171725")
-  primaryColor   String   @default("#8B5CF6")
-  accentColor    String   @default("#22D3EE")
-  textColor      String   @default("#F8FAFC")
-  headingFont    String   @default("Inter")
-  bodyFont       String   @default("Inter")
-  borderRadius   String   @default("medium")
-  buttonStyle    String   @default("rounded")
-  cardStyle      String   @default("bordered")
-  layoutWidth    String   @default("wide")
-  reduceMotion   Boolean  @default(false)
-  isPublished    Boolean  @default(true)
-  updatedAt      DateTime @updatedAt
-  createdAt      DateTime @default(now())
+  id              String    @id @default(uuid()) @db.Uuid
+  singletonKey    String    @unique @default("default")
+  mode            ThemeMode @default(DARK)
+  backgroundColor String    @default("#09090F")
+  surfaceColor    String    @default("#171725")
+  primaryColor    String    @default("#8B5CF6")
+  accentColor     String    @default("#22D3EE")
+  textColor       String    @default("#F8FAFC")
+  headingFont     String    @default("Inter")
+  bodyFont        String    @default("Inter")
+  borderRadius    String    @default("medium")
+  buttonStyle     String    @default("rounded")
+  cardStyle       String    @default("bordered")
+  layoutWidth     String    @default("wide")
+  reduceMotion    Boolean   @default(false)
+  isPublished     Boolean   @default(true)
+  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime  @default(now())
 }
 
 model HomepageSection {
-  id          String   @id @default(uuid()) @db.Uuid
-  sectionKey  String   @unique
+  id          String           @id @default(uuid()) @db.Uuid
+  sectionKey  String           @unique
   title       String
   content     Json
-  sortOrder   Int      @default(0)
-  isEnabled   Boolean  @default(true)
+  sortOrder   Int              @default(0)
+  isEnabled   Boolean          @default(true)
   status      CmsContentStatus @default(DRAFT)
   publishedAt DateTime?
-  updatedAt   DateTime @updatedAt
-  createdAt   DateTime @default(now())
+  updatedAt   DateTime         @updatedAt
+  createdAt   DateTime         @default(now())
+
   @@index([status, sortOrder])
 }
 
 model NavigationMenu {
-  id          String   @id @default(uuid()) @db.Uuid
-  location    String   @unique
-  name        String
-  status      CmsContentStatus @default(DRAFT)
-  items       NavigationItem[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String           @id @default(uuid()) @db.Uuid
+  location  String           @unique
+  name      String
+  status    CmsContentStatus @default(DRAFT)
+  items     NavigationItem[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 }
 
 model NavigationItem {
-  id          String   @id @default(uuid()) @db.Uuid
-  menuId      String   @db.Uuid
-  parentId    String?  @db.Uuid
-  label       String
-  href        String
-  openInNewTab Boolean @default(false)
-  sortOrder   Int      @default(0)
-  menu        NavigationMenu @relation(fields: [menuId], references: [id], onDelete: Cascade)
-  parent      NavigationItem? @relation("NavigationTree", fields: [parentId], references: [id], onDelete: Cascade)
-  children    NavigationItem[] @relation("NavigationTree")
+  id           String           @id @default(uuid()) @db.Uuid
+  menuId       String           @db.Uuid
+  parentId     String?          @db.Uuid
+  label        String
+  href         String
+  openInNewTab Boolean          @default(false)
+  sortOrder    Int              @default(0)
+  menu         NavigationMenu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  parent       NavigationItem?  @relation("NavigationTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children     NavigationItem[] @relation("NavigationTree")
+
   @@index([menuId, sortOrder])
 }
 
 model CmsPage {
-  id          String   @id @default(uuid()) @db.Uuid
-  slug        String   @unique
-  title       String
-  content     Json
-  status      CmsContentStatus @default(DRAFT)
-  seoTitle    String?
+  id             String           @id @default(uuid()) @db.Uuid
+  slug           String           @unique
+  title          String
+  content        Json
+  status         CmsContentStatus @default(DRAFT)
+  seoTitle       String?
   seoDescription String?
-  canonicalUrl String?
-  publishedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  canonicalUrl   String?
+  publishedAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
   @@index([status, updatedAt])
 }
 
@@ -762,35 +829,36 @@ model BlogCategory {
 }
 
 model BlogPost {
-  id             String   @id @default(uuid()) @db.Uuid
-  slug           String   @unique
-  title          String
-  excerpt        String
-  content        Json
+  id                      String         @id @default(uuid()) @db.Uuid
+  slug                    String         @unique
+  title                   String
+  excerpt                 String
+  content                 Json
   featuredImageStorageKey String?
-  status         BlogPostStatus @default(DRAFT)
-  categoryId     String?  @db.Uuid
-  authorId       String   @db.Uuid
-  seoTitle       String?
-  seoDescription String?
-  canonicalUrl   String?
-  readingTimeMinutes Int  @default(1)
-  scheduledAt    DateTime?
-  publishedAt    DateTime?
-  category       BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  author         User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
-  tags           BlogPostTag[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  status                  BlogPostStatus @default(DRAFT)
+  categoryId              String?        @db.Uuid
+  authorId                String         @db.Uuid
+  seoTitle                String?
+  seoDescription          String?
+  canonicalUrl            String?
+  readingTimeMinutes      Int            @default(1)
+  scheduledAt             DateTime?
+  publishedAt             DateTime?
+  category                BlogCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  author                  User           @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  tags                    BlogPostTag[]
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
   @@index([status, publishedAt])
   @@index([categoryId, status])
 }
 
 model BlogTag {
-  id        String       @id @default(uuid()) @db.Uuid
-  name      String       @unique
-  slug      String       @unique
-  posts     BlogPostTag[]
+  id    String        @id @default(uuid()) @db.Uuid
+  name  String        @unique
+  slug  String        @unique
+  posts BlogPostTag[]
 }
 
 model BlogPostTag {
@@ -798,20 +866,21 @@ model BlogPostTag {
   tagId  String   @db.Uuid
   post   BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
   tag    BlogTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
   @@id([postId, tagId])
 }
 
 model SeoMetadata {
-  id             String   @id @default(uuid()) @db.Uuid
-  routeKey       String   @unique
-  metaTitle      String
-  metaDescription String
+  id                String   @id @default(uuid()) @db.Uuid
+  routeKey          String   @unique
+  metaTitle         String
+  metaDescription   String
   ogImageStorageKey String?
-  canonicalUrl   String?
-  robots         String   @default("index,follow")
-  structuredData Json?
-  updatedAt      DateTime @updatedAt
-  createdAt      DateTime @default(now())
+  canonicalUrl      String?
+  robots            String   @default("index,follow")
+  structuredData    Json?
+  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
 }
 
 model ContentTranslation {
@@ -824,29 +893,31 @@ model ContentTranslation {
   isPublished Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
   @@unique([locale, entityType, entityId, field])
   @@index([locale, entityType, entityId])
 }
 
 model EmailTemplate {
-  id          String   @id @default(uuid()) @db.Uuid
-  key         String   @unique
-  subject     String
-  body        String
-  isEnabled   Boolean  @default(true)
-  updatedAt   DateTime @updatedAt
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  subject   String
+  body      String
+  isEnabled Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }
 
 model SocialLink {
-  id          String   @id @default(uuid()) @db.Uuid
-  platform    String   @unique
-  label       String
-  url         String
-  isEnabled   Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid()) @db.Uuid
+  platform  String   @unique
+  label     String
+  url       String
+  isEnabled Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([isEnabled, sortOrder])
 }
 
@@ -860,6 +931,7 @@ model SiteRevision {
   changedById String   @db.Uuid
   changedBy   User     @relation(fields: [changedById], references: [id], onDelete: Restrict)
   createdAt   DateTime @default(now())
+
   @@index([entityType, entityId, createdAt])
   @@index([changedById, createdAt])
 }
@@ -873,6 +945,7 @@ model AuditLog {
   entityId  String?
   metadata  Json?
   createdAt DateTime @default(now())
+
   @@index([createdAt])
   @@index([userId, createdAt])
 }
@@ -884,6 +957,7 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+
   @@index([userId, expiresAt])
 }
 
@@ -897,144 +971,151 @@ model Cart {
 }
 
 model CartItem {
-  id         String   @id @default(uuid()) @db.Uuid
-  cartId     String   @db.Uuid
-  templateId String   @db.Uuid
-  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  template   Template @relation(fields: [templateId], references: [id], onDelete: Restrict)
-  licenseTypeId String? @db.Uuid
-  licenseType ProductLicenseType? @relation(fields: [licenseTypeId], references: [id], onDelete: Restrict)
-  createdAt  DateTime @default(now())
+  id            String              @id @default(uuid()) @db.Uuid
+  cartId        String              @db.Uuid
+  templateId    String              @db.Uuid
+  cart          Cart                @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  template      Template            @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  licenseTypeId String?             @db.Uuid
+  licenseType   ProductLicenseType? @relation(fields: [licenseTypeId], references: [id], onDelete: Restrict)
+  createdAt     DateTime            @default(now())
+
   @@unique([cartId, templateId])
   @@index([templateId])
   @@index([licenseTypeId])
 }
 
 model Order {
-  id              String        @id @default(uuid()) @db.Uuid
-  orderNumber     String        @unique
-  userId          String        @db.Uuid
-  user            User          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  status          OrderStatus   @default(PENDING_PAYMENT)
-  currency        String        @default("MMK")
-  subtotalMmk     Int
-  totalMmk        Int
-  customerName    String
-  customerEmail   String
-  customerPhone   String
-  orderNotes      String?
-  couponId        String?
-  couponCode      String?
-  discountMmk     Int           @default(0)
-  idempotencyKey  String
-  items           OrderItem[]
-  payments        PaymentSubmission[]
-  entitlements    DownloadEntitlement[]
-  licenses        CustomerLicense[]
+  id                String                @id @default(uuid()) @db.Uuid
+  orderNumber       String                @unique
+  userId            String                @db.Uuid
+  user              User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  status            OrderStatus           @default(PENDING_PAYMENT)
+  currency          String                @default("MMK")
+  subtotalMmk       Int
+  totalMmk          Int
+  customerName      String
+  customerEmail     String
+  customerPhone     String
+  orderNotes        String?
+  couponId          String?
+  couponCode        String?
+  discountMmk       Int                   @default(0)
+  idempotencyKey    String
+  items             OrderItem[]
+  payments          PaymentSubmission[]
+  entitlements      DownloadEntitlement[]
+  licenses          CustomerLicense[]
   couponRedemptions CouponRedemption[]
-  supportTickets SupportTicket[]
-  refundRequests RefundRequest[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  paidAt          DateTime?
+  supportTickets    SupportTicket[]
+  refundRequests    RefundRequest[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  paidAt            DateTime?
+
   @@unique([userId, idempotencyKey])
   @@index([status, createdAt])
   @@index([userId, createdAt])
 }
 
 model OrderItem {
-  id             String    @id @default(uuid()) @db.Uuid
-  orderId        String    @db.Uuid
-  templateId     String?   @db.Uuid
-  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  template       Template? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  templateName   String
-  templateSlug   String
-  unitPriceMmk   Int
-  currency       String    @default("MMK")
-  quantity       Int       @default(1)
-  licenseTypeId  String? @db.Uuid
-  licenseType    ProductLicenseType? @relation(fields: [licenseTypeId], references: [id], onDelete: SetNull)
-  licenseTypeCode String?
-  licensePriceMmk Int?
-  licenseTermsSnapshot String?
+  id                          String              @id @default(uuid()) @db.Uuid
+  orderId                     String              @db.Uuid
+  templateId                  String?             @db.Uuid
+  order                       Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  template                    Template?           @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  templateName                String
+  templateSlug                String
+  unitPriceMmk                Int
+  currency                    String              @default("MMK")
+  quantity                    Int                 @default(1)
+  licenseTypeId               String?             @db.Uuid
+  licenseType                 ProductLicenseType? @relation(fields: [licenseTypeId], references: [id], onDelete: SetNull)
+  licenseTypeCode             String?
+  licensePriceMmk             Int?
+  licenseTermsSnapshot        String?
   licenseAllowedUsageSnapshot String?
-  license CustomerLicense?
-  review ProductReview?
-  createdAt      DateTime  @default(now())
+  license                     CustomerLicense?
+  review                      ProductReview?
+  createdAt                   DateTime            @default(now())
+
   @@unique([orderId, templateSlug])
   @@index([templateId])
   @@index([licenseTypeId])
 }
 
 model PaymentMethod {
-  id              String   @id @default(uuid()) @db.Uuid
-  code            String   @unique
-  name            String
+  id                String                     @id @default(uuid()) @db.Uuid
+  code              String                     @unique
+  name              String
   accountHolderName String
-  walletNumber    String
-  qrStorageKey    String?
-  instructions    String
-  isEnabled       Boolean  @default(false)
-  displayOrder    Int      @default(0)
-  payments        PaymentSubmission[]
-  projectPayments ProjectPaymentSubmission[]
-  coursePurchases CoursePurchase[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  walletNumber      String
+  qrStorageKey      String?
+  instructions      String
+  isEnabled         Boolean                    @default(false)
+  displayOrder      Int                        @default(0)
+  payments          PaymentSubmission[]
+  projectPayments   ProjectPaymentSubmission[]
+  coursePurchases   CoursePurchase[]
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
   @@index([isEnabled, displayOrder])
 }
 
 model PaymentSubmission {
-  id                    String                   @id @default(uuid()) @db.Uuid
-  orderId               String                   @db.Uuid
-  paymentMethodId       String                   @db.Uuid
-  submittedById         String                   @db.Uuid
-  amountMmk             Int
-  currency              String                   @default("MMK")
-  transactionReference  String
-  proofStorageKey        String
-  proofMimeType          String
-  status                PaymentSubmissionStatus @default(PENDING)
-  idempotencyKey        String                   @unique
-  order                 Order                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  paymentMethod         PaymentMethod            @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
-  submittedBy           User                     @relation(fields: [submittedById], references: [id], onDelete: Restrict)
-  review                PaymentReview?
-  createdAt             DateTime                 @default(now())
-  updatedAt             DateTime                 @updatedAt
+  id                   String                  @id @default(uuid()) @db.Uuid
+  orderId              String                  @db.Uuid
+  paymentMethodId      String                  @db.Uuid
+  submittedById        String                  @db.Uuid
+  amountMmk            Int
+  currency             String                  @default("MMK")
+  transactionReference String
+  proofStorageKey      String
+  proofMimeType        String
+  status               PaymentSubmissionStatus @default(PENDING)
+  idempotencyKey       String                  @unique
+  order                Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  paymentMethod        PaymentMethod           @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  submittedBy          User                    @relation(fields: [submittedById], references: [id], onDelete: Restrict)
+  review               PaymentReview?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
   @@index([orderId, status, createdAt])
   @@index([submittedById, createdAt])
 }
 
 model PaymentReview {
-  id             String                   @id @default(uuid()) @db.Uuid
-  submissionId   String                   @unique @db.Uuid
-  reviewerId     String                   @db.Uuid
-  decision       PaymentSubmissionStatus
+  id              String                  @id @default(uuid()) @db.Uuid
+  submissionId    String                  @unique @db.Uuid
+  reviewerId      String                  @db.Uuid
+  decision        PaymentSubmissionStatus
   rejectionReason String?
-  verifiedNote   String?
-  reviewedAt     DateTime                 @default(now())
-  submission     PaymentSubmission        @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  reviewer       User                     @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+  verifiedNote    String?
+  reviewedAt      DateTime                @default(now())
+  submission      PaymentSubmission       @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  reviewer        User                    @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+
   @@index([reviewerId, reviewedAt])
 }
 
 model DownloadEntitlement {
-  id             String    @id @default(uuid()) @db.Uuid
-  orderId        String    @db.Uuid
-  templateId     String    @db.Uuid
-  userId         String    @db.Uuid
-  maxDownloads   Int       @default(5)
-  downloadCount  Int       @default(0)
-  tokenVersion   Int       @default(1)
+  id             String          @id @default(uuid()) @db.Uuid
+  orderId        String          @db.Uuid
+  templateId     String          @db.Uuid
+  userId         String          @db.Uuid
+  maxDownloads   Int             @default(5)
+  downloadCount  Int             @default(0)
+  tokenVersion   Int             @default(1)
   revokedAt      DateTime?
-  order          Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  template       Template  @relation(fields: [templateId], references: [id], onDelete: Restrict)
-  user           User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  template       Template        @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  user           User            @relation(fields: [userId], references: [id], onDelete: Restrict)
   downloadEvents DownloadEvent[]
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
   @@unique([orderId, templateId])
   @@unique([orderId, templateId, userId])
   @@index([userId, revokedAt])
@@ -1049,123 +1130,129 @@ model DownloadEvent {
   createdAt     DateTime            @default(now())
   entitlement   DownloadEntitlement @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
   user          User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+
   @@index([entitlementId, createdAt])
   @@index([userId, createdAt])
 }
 
 model PasswordResetToken {
-  id        String   @id @default(uuid()) @db.Uuid
-  tokenHash String   @unique
-  userId    String   @db.Uuid
+  id        String    @id @default(uuid()) @db.Uuid
+  tokenHash String    @unique
+  userId    String    @db.Uuid
   expiresAt DateTime
   usedAt    DateTime?
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
   @@index([userId, expiresAt])
 }
 
 model ProductLicenseType {
-  id          String   @id @default(uuid()) @db.Uuid
-  code        String   @unique
-  name        String
-  defaultTerms String
+  id                  String                @id @default(uuid()) @db.Uuid
+  code                String                @unique
+  name                String
+  defaultTerms        String
   defaultAllowedUsage String
-  isActive    Boolean  @default(true)
-  prices      ProductLicensePrice[]
-  cartItems   CartItem[]
-  orderItems  OrderItem[]
-  licenses    CustomerLicense[]
-  couponLicenses CouponLicenseType[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive            Boolean               @default(true)
+  prices              ProductLicensePrice[]
+  cartItems           CartItem[]
+  orderItems          OrderItem[]
+  licenses            CustomerLicense[]
+  couponLicenses      CouponLicenseType[]
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
 }
 
 model ProductLicensePrice {
-  id            String   @id @default(uuid()) @db.Uuid
-  productId     String   @db.Uuid
-  licenseTypeId String   @db.Uuid
+  id            String             @id @default(uuid()) @db.Uuid
+  productId     String             @db.Uuid
+  licenseTypeId String             @db.Uuid
   priceMmk      Int
   licenseTerms  String
   allowedUsage  String
-  isActive      Boolean  @default(true)
-  product       Template @relation(fields: [productId], references: [id], onDelete: Cascade)
+  isActive      Boolean            @default(true)
+  product       Template           @relation(fields: [productId], references: [id], onDelete: Cascade)
   licenseType   ProductLicenseType @relation(fields: [licenseTypeId], references: [id], onDelete: Restrict)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
   @@unique([productId, licenseTypeId])
   @@index([productId, isActive])
 }
 
 model CustomerLicense {
-  id             String        @id @default(uuid()) @db.Uuid
-  productId      String        @db.Uuid
-  licenseTypeId  String        @db.Uuid
-  orderId        String        @db.Uuid
-  orderItemId    String        @unique @db.Uuid
-  customerId     String        @db.Uuid
-  priceMmk       Int
-  licenseTerms   String
-  allowedUsage   String
-  licenseKey     String        @unique
-  status         LicenseStatus @default(ACTIVE)
-  issuedAt       DateTime      @default(now())
-  revokedAt      DateTime?
+  id               String             @id @default(uuid()) @db.Uuid
+  productId        String             @db.Uuid
+  licenseTypeId    String             @db.Uuid
+  orderId          String             @db.Uuid
+  orderItemId      String             @unique @db.Uuid
+  customerId       String             @db.Uuid
+  priceMmk         Int
+  licenseTerms     String
+  allowedUsage     String
+  licenseKey       String             @unique
+  status           LicenseStatus      @default(ACTIVE)
+  issuedAt         DateTime           @default(now())
+  revokedAt        DateTime?
   revocationReason String?
-  product        Template      @relation(fields: [productId], references: [id], onDelete: Restrict)
-  licenseType    ProductLicenseType @relation(fields: [licenseTypeId], references: [id], onDelete: Restrict)
-  order          Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  orderItem      OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
-  customer       User          @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  product          Template           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  licenseType      ProductLicenseType @relation(fields: [licenseTypeId], references: [id], onDelete: Restrict)
+  order            Order              @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderItem        OrderItem          @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  customer         User               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
   @@index([customerId, status, createdAt])
   @@index([productId, status])
 }
 
 model ProductVersion {
-  id            String              @id @default(uuid()) @db.Uuid
-  productId     String              @db.Uuid
+  id            String               @id @default(uuid()) @db.Uuid
+  productId     String               @db.Uuid
   versionNumber String
   changelog     String
   releaseNotes  String?
-  releaseDate   DateTime            @default(now())
+  releaseDate   DateTime             @default(now())
   status        ProductVersionStatus @default(DRAFT)
-  updatePolicy  String              @default("ACTIVE_LICENSE")
-  product       Template            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  updatePolicy  String               @default("ACTIVE_LICENSE")
+  product       Template             @relation(fields: [productId], references: [id], onDelete: Cascade)
   files         ProductVersionFile[]
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
   @@unique([productId, versionNumber])
   @@index([productId, status, releaseDate])
 }
 
 model ProductVersionFile {
-  id          String         @id @default(uuid()) @db.Uuid
-  versionId   String         @unique @db.Uuid
-  storageKey  String
-  fileSize    Int
-  checksum    String
-  version     ProductVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id         String         @id @default(uuid()) @db.Uuid
+  versionId  String         @unique @db.Uuid
+  storageKey String
+  fileSize   Int
+  checksum   String
+  version    ProductVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 }
 
 model Coupon {
-  id                 String          @id @default(uuid()) @db.Uuid
-  code               String          @unique
-  type               CouponType
-  amount             Int
-  startsAt           DateTime?
-  expiresAt          DateTime?
-  maxUsageCount      Int?
-  perCustomerLimit   Int?
-  minimumOrderMmk    Int             @default(0)
-  isActive           Boolean         @default(true)
-  products           CouponProduct[]
-  licenseTypes       CouponLicenseType[]
-  redemptions        CouponRedemption[]
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  id               String              @id @default(uuid()) @db.Uuid
+  code             String              @unique
+  type             CouponType
+  amount           Int
+  startsAt         DateTime?
+  expiresAt        DateTime?
+  maxUsageCount    Int?
+  perCustomerLimit Int?
+  minimumOrderMmk  Int                 @default(0)
+  isActive         Boolean             @default(true)
+  products         CouponProduct[]
+  licenseTypes     CouponLicenseType[]
+  redemptions      CouponRedemption[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
   @@index([isActive, startsAt, expiresAt])
 }
 
@@ -1174,6 +1261,7 @@ model CouponProduct {
   productId String   @db.Uuid
   coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
   product   Template @relation(fields: [productId], references: [id], onDelete: Cascade)
+
   @@id([couponId, productId])
 }
 
@@ -1182,21 +1270,23 @@ model CouponLicenseType {
   licenseTypeId String             @db.Uuid
   coupon        Coupon             @relation(fields: [couponId], references: [id], onDelete: Cascade)
   licenseType   ProductLicenseType @relation(fields: [licenseTypeId], references: [id], onDelete: Cascade)
+
   @@id([couponId, licenseTypeId])
 }
 
 model CouponRedemption {
-  id             String   @id @default(uuid()) @db.Uuid
-  couponId       String   @db.Uuid
-  customerId     String   @db.Uuid
-  orderId        String   @unique @db.Uuid
-  discountMmk    Int
-  redeemedAt     DateTime?
-  releasedAt     DateTime?
-  coupon         Coupon   @relation(fields: [couponId], references: [id], onDelete: Restrict)
-  customer       User     @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  createdAt      DateTime @default(now())
+  id          String    @id @default(uuid()) @db.Uuid
+  couponId    String    @db.Uuid
+  customerId  String    @db.Uuid
+  orderId     String    @unique @db.Uuid
+  discountMmk Int
+  redeemedAt  DateTime?
+  releasedAt  DateTime?
+  coupon      Coupon    @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  customer    User      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
   @@index([couponId, redeemedAt])
   @@index([customerId, couponId])
 }
@@ -1208,156 +1298,163 @@ model WishlistItem {
   customer   User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
   product    Template @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
+
   @@unique([customerId, productId])
   @@index([customerId, createdAt])
 }
 
 model ProductReview {
-  id          String       @id @default(uuid()) @db.Uuid
-  productId   String       @db.Uuid
-  customerId  String       @db.Uuid
-  orderItemId String       @unique @db.Uuid
+  id          String         @id @default(uuid()) @db.Uuid
+  productId   String         @db.Uuid
+  customerId  String         @db.Uuid
+  orderItemId String         @unique @db.Uuid
   rating      Int
   title       String
   content     String
-  status      ReviewStatus @default(ACTIVE)
-  product     Template     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  customer    User         @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  orderItem   OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  status      ReviewStatus   @default(ACTIVE)
+  product     Template       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customer    User           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orderItem   OrderItem      @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
   reports     ReviewReport[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
   @@unique([productId, customerId])
   @@index([productId, status, createdAt])
 }
 
 model ReviewReport {
-  id         String       @id @default(uuid()) @db.Uuid
-  reviewId   String       @db.Uuid
-  reporterId String       @db.Uuid
+  id         String        @id @default(uuid()) @db.Uuid
+  reviewId   String        @db.Uuid
+  reporterId String        @db.Uuid
   reason     String
-  status     ReportStatus @default(OPEN)
+  status     ReportStatus  @default(OPEN)
   review     ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  reporter   User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
-  createdAt  DateTime     @default(now())
+  reporter   User          @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
   resolvedAt DateTime?
+
   @@index([status, createdAt])
 }
 
 model ProjectRequest {
-  id                  String              @id @default(uuid()) @db.Uuid
-  requestNumber       String              @unique
-  customerId          String              @db.Uuid
-  assignedAdminId     String?             @db.Uuid
-  status              ProjectRequestStatus @default(DRAFT)
+  id                  String                     @id @default(uuid()) @db.Uuid
+  requestNumber       String                     @unique
+  customerId          String                     @db.Uuid
+  assignedAdminId     String?                    @db.Uuid
+  status              ProjectRequestStatus       @default(DRAFT)
   companyName         String?
   websiteType         String
   title               String
   description         String
-  requiredPages       String[] @default([])
-  requiredFeatures    String[] @default([])
+  requiredPages       String[]                   @default([])
+  requiredFeatures    String[]                   @default([])
   preferredTechnology String?
   budgetMinMmk        Int?
   budgetMaxMmk        Int?
   desiredDeadline     DateTime?
-  referenceUrls       String[] @default([])
+  referenceUrls       String[]                   @default([])
   additionalNotes     String?
   internalNotes       String?
   idempotencyKey      String
-  customer            User                @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  assignedAdmin       User?               @relation("RequestAssignee", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  customer            User                       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedAdmin       User?                      @relation("RequestAssignee", fields: [assignedAdminId], references: [id], onDelete: SetNull)
   attachments         ProjectRequestAttachment[]
   proposals           Proposal[]
   project             Project?
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
   submittedAt         DateTime?
+
   @@unique([customerId, idempotencyKey])
   @@index([status, createdAt])
   @@index([customerId, createdAt])
 }
 
 model ProjectRequestAttachment {
-  id          String        @id @default(uuid()) @db.Uuid
-  requestId   String        @db.Uuid
-  storageKey  String
-  fileName    String
-  mimeType    String
-  fileSize    Int
-  request     ProjectRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  createdAt   DateTime      @default(now())
+  id         String         @id @default(uuid()) @db.Uuid
+  requestId  String         @db.Uuid
+  storageKey String
+  fileName   String
+  mimeType   String
+  fileSize   Int
+  request    ProjectRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
+
   @@index([requestId, createdAt])
 }
 
 model Proposal {
-  id                    String         @id @default(uuid()) @db.Uuid
-  proposalNumber        String         @unique
-  requestId             String         @db.Uuid
-  clientId              String         @db.Uuid
-  createdById           String         @db.Uuid
-  acceptedById          String?        @db.Uuid
-  status                ProposalStatus @default(DRAFT)
-  currentVersionNumber  Int            @default(1)
+  id                    String            @id @default(uuid()) @db.Uuid
+  proposalNumber        String            @unique
+  requestId             String            @db.Uuid
+  clientId              String            @db.Uuid
+  createdById           String            @db.Uuid
+  acceptedById          String?           @db.Uuid
+  status                ProposalStatus    @default(DRAFT)
+  currentVersionNumber  Int               @default(1)
   acceptedAt            DateTime?
   acceptedTermsSnapshot String?
-  request               ProjectRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
-  client                User           @relation("ProposalClient", fields: [clientId], references: [id], onDelete: Restrict)
-  createdBy             User           @relation("ProposalCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  acceptedBy            User?          @relation("ProposalAcceptor", fields: [acceptedById], references: [id], onDelete: SetNull)
+  request               ProjectRequest    @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  client                User              @relation("ProposalClient", fields: [clientId], references: [id], onDelete: Restrict)
+  createdBy             User              @relation("ProposalCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  acceptedBy            User?             @relation("ProposalAcceptor", fields: [acceptedById], references: [id], onDelete: SetNull)
   versions              ProposalVersion[]
   project               Project?
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
   @@index([clientId, status, createdAt])
   @@index([requestId, createdAt])
 }
 
 model ProposalVersion {
-  id                 String    @id @default(uuid()) @db.Uuid
-  proposalId         String    @db.Uuid
+  id                 String         @id @default(uuid()) @db.Uuid
+  proposalId         String         @db.Uuid
   versionNumber      Int
   projectScope       String
   deliverables       String[]
   technologyStack    String[]
   estimatedTimeline  String
   subtotalMmk        Int
-  discountMmk        Int       @default(0)
+  discountMmk        Int            @default(0)
   totalMmk           Int
   paymentSchedule    Json
   termsAndConditions String
   expirationDate     DateTime
-  proposal           Proposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposal           Proposal       @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   items              ProposalItem[]
-  createdAt          DateTime  @default(now())
+  createdAt          DateTime       @default(now())
+
   @@unique([proposalId, versionNumber])
   @@index([proposalId, createdAt])
 }
 
 model ProposalItem {
-  id          String         @id @default(uuid()) @db.Uuid
-  versionId   String         @db.Uuid
-  description String
-  quantity    Int            @default(1)
+  id           String          @id @default(uuid()) @db.Uuid
+  versionId    String          @db.Uuid
+  description  String
+  quantity     Int             @default(1)
   unitPriceMmk Int
-  totalMmk    Int
-  version     ProposalVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  totalMmk     Int
+  version      ProposalVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
 }
 
 model Project {
-  id                   String        @id @default(uuid()) @db.Uuid
-  projectNumber        String        @unique
-  requestId            String        @unique @db.Uuid
-  proposalId           String        @unique @db.Uuid
-  clientId             String        @db.Uuid
-  assignedAdminId      String?       @db.Uuid
-  status               ProjectStatus @default(AWAITING_DEPOSIT)
+  id                   String             @id @default(uuid()) @db.Uuid
+  projectNumber        String             @unique
+  requestId            String             @unique @db.Uuid
+  proposalId           String             @unique @db.Uuid
+  clientId             String             @db.Uuid
+  assignedAdminId      String?            @db.Uuid
+  status               ProjectStatus      @default(AWAITING_DEPOSIT)
   budgetMmk            Int
   startDate            DateTime?
   targetCompletionDate DateTime?
-  request              ProjectRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
-  proposal             Proposal      @relation(fields: [proposalId], references: [id], onDelete: Restrict)
-  client               User          @relation("ClientProjects", fields: [clientId], references: [id], onDelete: Restrict)
-  assignedAdmin        User?         @relation("AssignedProjects", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  request              ProjectRequest     @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  proposal             Proposal           @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  client               User               @relation("ClientProjects", fields: [clientId], references: [id], onDelete: Restrict)
+  assignedAdmin        User?              @relation("AssignedProjects", fields: [assignedAdminId], references: [id], onDelete: SetNull)
   milestones           ProjectMilestone[]
   approvals            ProjectApproval[]
   messages             ProjectMessage[]
@@ -1365,96 +1462,102 @@ model Project {
   invoices             ProjectInvoice[]
   activities           ProjectActivity[]
   supportTickets       SupportTicket[]
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
   @@index([status, updatedAt])
   @@index([clientId, status])
   @@index([assignedAdminId, status])
 }
 
 model ProjectMilestone {
-  id          String          @id @default(uuid()) @db.Uuid
-  projectId   String          @db.Uuid
-  ownerId     String?         @db.Uuid
+  id          String            @id @default(uuid()) @db.Uuid
+  projectId   String            @db.Uuid
+  ownerId     String?           @db.Uuid
   name        String
   description String?
   weight      Int
-  status      MilestoneStatus @default(PENDING)
+  status      MilestoneStatus   @default(PENDING)
   dueDate     DateTime?
   completedAt DateTime?
-  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  owner       User?           @relation("MilestoneOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner       User?             @relation("MilestoneOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   approvals   ProjectApproval[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
   @@index([projectId, status, dueDate])
 }
 
 model ProjectApproval {
-  id          String         @id @default(uuid()) @db.Uuid
-  projectId   String         @db.Uuid
-  milestoneId String         @db.Uuid
-  actorId     String         @db.Uuid
+  id          String           @id @default(uuid()) @db.Uuid
+  projectId   String           @db.Uuid
+  milestoneId String           @db.Uuid
+  actorId     String           @db.Uuid
   status      ApprovalStatus
   note        String?
-  actedAt     DateTime       @default(now())
-  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  milestone  ProjectMilestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
-  actor      User           @relation("ApprovalActor", fields: [actorId], references: [id], onDelete: Restrict)
+  actedAt     DateTime         @default(now())
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone   ProjectMilestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  actor       User             @relation("ApprovalActor", fields: [actorId], references: [id], onDelete: Restrict)
+
   @@index([projectId, milestoneId, actedAt])
 }
 
 model ProjectMessage {
-  id         String       @id @default(uuid()) @db.Uuid
-  projectId  String       @db.Uuid
-  authorId   String       @db.Uuid
-  body       String
-  readAt     DateTime?
-  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  author     User         @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  id          String                     @id @default(uuid()) @db.Uuid
+  projectId   String                     @db.Uuid
+  authorId    String                     @db.Uuid
+  body        String
+  readAt      DateTime?
+  project     Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author      User                       @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Restrict)
   attachments ProjectMessageAttachment[]
-  createdAt  DateTime     @default(now())
+  createdAt   DateTime                   @default(now())
+
   @@index([projectId, createdAt])
 }
 
 model ProjectMessageAttachment {
-  id          String         @id @default(uuid()) @db.Uuid
-  messageId   String         @db.Uuid
-  storageKey  String
-  fileName    String
-  mimeType    String
-  fileSize    Int
-  message     ProjectMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  createdAt   DateTime       @default(now())
+  id         String         @id @default(uuid()) @db.Uuid
+  messageId  String         @db.Uuid
+  storageKey String
+  fileName   String
+  mimeType   String
+  fileSize   Int
+  message    ProjectMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
 }
 
 model ProjectFile {
-  id           String              @id @default(uuid()) @db.Uuid
-  projectId    String              @db.Uuid
-  uploadedById String              @db.Uuid
+  id           String                @id @default(uuid()) @db.Uuid
+  projectId    String                @db.Uuid
+  uploadedById String                @db.Uuid
   category     String
-  version      Int                 @default(1)
+  version      Int                   @default(1)
   fileName     String
   storageKey   String
   mimeType     String
   fileSize     Int
   checksum     String
   visibility   ProjectFileVisibility @default(CLIENT)
-  project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  uploadedBy   User               @relation("FileUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  project      Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy   User                  @relation("FileUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
   events       ProjectFileEvent[]
-  createdAt    DateTime            @default(now())
+  createdAt    DateTime              @default(now())
+
   @@index([projectId, category, createdAt])
 }
 
 model ProjectFileEvent {
   id        String      @id @default(uuid()) @db.Uuid
-  fileId   String      @db.Uuid
-  userId   String      @db.Uuid
+  fileId    String      @db.Uuid
+  userId    String      @db.Uuid
   action    String
   file      ProjectFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
   user      User        @relation(fields: [userId], references: [id], onDelete: Restrict)
   createdAt DateTime    @default(now())
+
   @@index([fileId, createdAt])
 }
 
@@ -1466,26 +1569,28 @@ model ProjectActivity {
   metadata  Json?
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
   @@index([projectId, createdAt])
 }
 
 model ProjectInvoice {
-  id          String               @id @default(uuid()) @db.Uuid
-  projectId   String               @db.Uuid
-  clientId    String               @db.Uuid
-  invoiceNumber String             @unique
-  status      ProjectInvoiceStatus @default(DRAFT)
-  subtotalMmk Int
-  totalMmk    Int
-  amountPaidMmk Int                @default(0)
-  dueDate     DateTime?
-  project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  client      User                 @relation("InvoiceClient", fields: [clientId], references: [id], onDelete: Restrict)
-  items       ProjectInvoiceItem[]
-  payments    ProjectPaymentSubmission[]
+  id             String                     @id @default(uuid()) @db.Uuid
+  projectId      String                     @db.Uuid
+  clientId       String                     @db.Uuid
+  invoiceNumber  String                     @unique
+  status         ProjectInvoiceStatus       @default(DRAFT)
+  subtotalMmk    Int
+  totalMmk       Int
+  amountPaidMmk  Int                        @default(0)
+  dueDate        DateTime?
+  project        Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  client         User                       @relation("InvoiceClient", fields: [clientId], references: [id], onDelete: Restrict)
+  items          ProjectInvoiceItem[]
+  payments       ProjectPaymentSubmission[]
   refundRequests RefundRequest[]
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
   @@index([projectId, status, dueDate])
   @@index([clientId, status])
 }
@@ -1499,47 +1604,49 @@ model ProjectInvoiceItem {
 }
 
 model ProjectPaymentSubmission {
-  id                   String               @id @default(uuid()) @db.Uuid
-  invoiceId            String               @db.Uuid
-  paymentMethodId      String               @db.Uuid
-  submittedById        String               @db.Uuid
+  id                   String                @id @default(uuid()) @db.Uuid
+  invoiceId            String                @db.Uuid
+  paymentMethodId      String                @db.Uuid
+  submittedById        String                @db.Uuid
   amountMmk            Int
-  currency             String               @default("MMK")
+  currency             String                @default("MMK")
   transactionReference String
   proofStorageKey      String
   proofMimeType        String
-  status               ProjectPaymentStatus @default(PENDING)
-  idempotencyKey       String               @unique
-  invoice              ProjectInvoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  paymentMethod        PaymentMethod       @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
-  submittedBy          User               @relation(fields: [submittedById], references: [id], onDelete: Restrict)
+  status               ProjectPaymentStatus  @default(PENDING)
+  idempotencyKey       String                @unique
+  invoice              ProjectInvoice        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  paymentMethod        PaymentMethod         @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  submittedBy          User                  @relation(fields: [submittedById], references: [id], onDelete: Restrict)
   review               ProjectPaymentReview?
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
   @@index([invoiceId, status, createdAt])
 }
 
 model ProjectPaymentReview {
-  id              String               @id @default(uuid()) @db.Uuid
-  submissionId    String               @unique @db.Uuid
-  reviewerId      String               @db.Uuid
+  id              String                   @id @default(uuid()) @db.Uuid
+  submissionId    String                   @unique @db.Uuid
+  reviewerId      String                   @db.Uuid
   decision        ProjectPaymentStatus
   rejectionReason String?
-  reviewedAt      DateTime             @default(now())
+  reviewedAt      DateTime                 @default(now())
   submission      ProjectPaymentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  reviewer        User                 @relation("ProjectPaymentReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  reviewer        User                     @relation("ProjectPaymentReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
 }
 
 model Notification {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
   type      String
   title     String
   body      String
   href      String?
   readAt    DateTime?
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
   @@index([userId, readAt, createdAt])
 }
 
@@ -1547,54 +1654,109 @@ model LoginAttempt {
   id        String   @id @default(uuid()) @db.Uuid
   key       String
   createdAt DateTime @default(now())
+
   @@index([key, createdAt])
 }
 
+model AnalyticsEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  eventName      String
+  userId         String?  @db.Uuid
+  anonymousId    String?
+  sessionId      String?
+  path           String?
+  payload        Json?
+  idempotencyKey String?  @unique
+  occurredAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([eventName, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([anonymousId, occurredAt])
+}
+
+model MarketingConsent {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @unique @db.Uuid
+  marketingEmail Boolean   @default(false)
+  source         String?
+  consentedAt    DateTime?
+  withdrawnAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([marketingEmail, updatedAt])
+}
+
+model MarketingCampaign {
+  id          String                  @id @default(uuid()) @db.Uuid
+  name        String
+  type        String
+  objective   String
+  audience    Json?
+  startsAt    DateTime?
+  endsAt      DateTime?
+  budgetMmk   Int?
+  status      MarketingCampaignStatus @default(DRAFT)
+  publishedAt DateTime?
+  createdById String                  @db.Uuid
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  createdBy   User                    @relation("CampaignCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([status, startsAt, endsAt])
+  @@index([createdById, createdAt])
+}
+
 model SupportCategory {
-  id          String            @id @default(uuid()) @db.Uuid
-  name        String            @unique
-  slug        String            @unique
+  id          String          @id @default(uuid()) @db.Uuid
+  name        String          @unique
+  slug        String          @unique
   description String?
-  sortOrder   Int               @default(0)
-  isEnabled   Boolean           @default(true)
+  sortOrder   Int             @default(0)
+  isEnabled   Boolean         @default(true)
   tickets     SupportTicket[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
   @@index([isEnabled, sortOrder])
 }
 
 model SupportTicket {
-  id                  String              @id @default(uuid()) @db.Uuid
-  ticketNumber        String              @unique
-  customerId          String              @db.Uuid
-  categoryId          String              @db.Uuid
-  assignedAgentId     String?             @db.Uuid
+  id                  String                 @id @default(uuid()) @db.Uuid
+  ticketNumber        String                 @unique
+  customerId          String                 @db.Uuid
+  categoryId          String                 @db.Uuid
+  assignedAgentId     String?                @db.Uuid
   subject             String
   description         String
-  status              SupportTicketStatus @default(OPEN)
-  priority            SupportPriority     @default(NORMAL)
+  status              SupportTicketStatus    @default(OPEN)
+  priority            SupportPriority        @default(NORMAL)
   firstResponseAt     DateTime?
   resolvedAt          DateTime?
   closedAt            DateTime?
   slaResponseDueAt    DateTime?
   slaResolutionDueAt  DateTime?
-  relatedOrderId      String?             @db.Uuid
-  relatedProjectId    String?             @db.Uuid
-  relatedEnrollmentId String?             @db.Uuid
-  customer            User                @relation("TicketCustomer", fields: [customerId], references: [id], onDelete: Cascade)
-  category            SupportCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  assignedAgent       User?               @relation("TicketAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
-  relatedOrder        Order?              @relation(fields: [relatedOrderId], references: [id], onDelete: SetNull)
-  relatedProject      Project?            @relation(fields: [relatedProjectId], references: [id], onDelete: SetNull)
-  relatedEnrollment   CourseEnrollment?   @relation(fields: [relatedEnrollmentId], references: [id], onDelete: SetNull)
+  relatedOrderId      String?                @db.Uuid
+  relatedProjectId    String?                @db.Uuid
+  relatedEnrollmentId String?                @db.Uuid
+  customer            User                   @relation("TicketCustomer", fields: [customerId], references: [id], onDelete: Cascade)
+  category            SupportCategory        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  assignedAgent       User?                  @relation("TicketAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  relatedOrder        Order?                 @relation(fields: [relatedOrderId], references: [id], onDelete: SetNull)
+  relatedProject      Project?               @relation(fields: [relatedProjectId], references: [id], onDelete: SetNull)
+  relatedEnrollment   CourseEnrollment?      @relation(fields: [relatedEnrollmentId], references: [id], onDelete: SetNull)
   messages            SupportMessage[]
   attachments         SupportAttachment[]
   assignments         SupportAssignment[]
   statusHistory       SupportStatusHistory[]
   feedback            SupportFeedback?
   refundRequests      RefundRequest[]
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
   @@index([customerId, status, createdAt])
   @@index([assignedAgentId, status, updatedAt])
   @@index([categoryId, status, createdAt])
@@ -1602,32 +1764,34 @@ model SupportTicket {
 }
 
 model SupportMessage {
-  id          String            @id @default(uuid()) @db.Uuid
-  ticketId    String            @db.Uuid
-  senderId    String            @db.Uuid
+  id          String              @id @default(uuid()) @db.Uuid
+  ticketId    String              @db.Uuid
+  senderId    String              @db.Uuid
   body        String
-  isInternal  Boolean           @default(false)
+  isInternal  Boolean             @default(false)
   readAt      DateTime?
-  ticket      SupportTicket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  sender      User              @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  ticket      SupportTicket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender      User                @relation(fields: [senderId], references: [id], onDelete: Restrict)
   attachments SupportAttachment[]
-  createdAt   DateTime          @default(now())
+  createdAt   DateTime            @default(now())
+
   @@index([ticketId, isInternal, createdAt])
 }
 
 model SupportAttachment {
-  id          String          @id @default(uuid()) @db.Uuid
-  ticketId    String          @db.Uuid
-  messageId   String?         @db.Uuid
-  uploadedById String         @db.Uuid
-  storageKey  String
-  fileName    String
-  mimeType    String
-  fileSize    Int
-  ticket      SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  message     SupportMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  uploadedBy  User            @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
-  createdAt   DateTime        @default(now())
+  id           String          @id @default(uuid()) @db.Uuid
+  ticketId     String          @db.Uuid
+  messageId    String?         @db.Uuid
+  uploadedById String          @db.Uuid
+  storageKey   String
+  fileName     String
+  mimeType     String
+  fileSize     Int
+  ticket       SupportTicket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message      SupportMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  uploadedBy   User            @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  createdAt    DateTime        @default(now())
+
   @@index([ticketId, createdAt])
   @@index([messageId])
 }
@@ -1642,109 +1806,114 @@ model SupportAssignment {
   ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   agent        User          @relation("SupportAgent", fields: [agentId], references: [id], onDelete: Restrict)
   assignedBy   User          @relation("AssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+
   @@index([ticketId, assignedAt])
   @@index([agentId, unassignedAt])
 }
 
 model SupportStatusHistory {
-  id        String              @id @default(uuid()) @db.Uuid
-  ticketId  String              @db.Uuid
-  actorId   String              @db.Uuid
+  id         String               @id @default(uuid()) @db.Uuid
+  ticketId   String               @db.Uuid
+  actorId    String               @db.Uuid
   fromStatus SupportTicketStatus?
-  toStatus  SupportTicketStatus
-  reason    String?
-  ticket    SupportTicket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  actor     User                @relation(fields: [actorId], references: [id], onDelete: Restrict)
-  createdAt DateTime            @default(now())
+  toStatus   SupportTicketStatus
+  reason     String?
+  ticket     SupportTicket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor      User                 @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  createdAt  DateTime             @default(now())
+
   @@index([ticketId, createdAt])
 }
 
 model SupportSlaPolicy {
-  id                    String          @id @default(uuid()) @db.Uuid
-  priority              SupportPriority @unique
-  firstResponseMinutes  Int
-  resolutionMinutes     Int
-  timezone              String          @default("Asia/Yangon")
-  pauseWhileWaiting     Boolean         @default(true)
-  isEnabled             Boolean         @default(true)
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
+  id                   String          @id @default(uuid()) @db.Uuid
+  priority             SupportPriority @unique
+  firstResponseMinutes Int
+  resolutionMinutes    Int
+  timezone             String          @default("Asia/Yangon")
+  pauseWhileWaiting    Boolean         @default(true)
+  isEnabled            Boolean         @default(true)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
 }
 
 model KnowledgeCategory {
-  id          String            @id @default(uuid()) @db.Uuid
-  name        String            @unique
-  slug        String            @unique
+  id          String             @id @default(uuid()) @db.Uuid
+  name        String             @unique
+  slug        String             @unique
   description String?
   articles    KnowledgeArticle[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 }
 
 model KnowledgeArticle {
-  id             String          @id @default(uuid()) @db.Uuid
-  slug           String          @unique
+  id             String            @id @default(uuid()) @db.Uuid
+  slug           String            @unique
   title          String
   excerpt        String
   content        Json
-  categoryId     String          @db.Uuid
-  authorId       String          @db.Uuid
-  status         KnowledgeStatus @default(DRAFT)
-  isFeatured     Boolean         @default(false)
+  categoryId     String            @db.Uuid
+  authorId       String            @db.Uuid
+  status         KnowledgeStatus   @default(DRAFT)
+  isFeatured     Boolean           @default(false)
   seoTitle       String?
   seoDescription String?
   publishedAt    DateTime?
   category       KnowledgeCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  author         User            @relation("KnowledgeAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  author         User              @relation("KnowledgeAuthor", fields: [authorId], references: [id], onDelete: Restrict)
   feedback       SupportFeedback[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
   @@index([status, publishedAt])
   @@index([categoryId, status])
 }
 
 model RefundRequest {
-  id                    String       @id @default(uuid()) @db.Uuid
-  requestNumber         String       @unique
-  customerId            String       @db.Uuid
-  ticketId              String?      @db.Uuid
-  orderId               String?      @db.Uuid
-  coursePurchaseId      String?      @db.Uuid
-  projectInvoiceId      String?      @db.Uuid
-  requestedAmountMmk    Int
-  approvedAmountMmk     Int?
-  currency              String       @default("MMK")
-  reason                String
-  evidenceStorageKey    String?
-  status                RefundStatus @default(REQUESTED)
-  reviewerId            String?      @db.Uuid
-  reviewerNote          String?
+  id                         String          @id @default(uuid()) @db.Uuid
+  requestNumber              String          @unique
+  customerId                 String          @db.Uuid
+  ticketId                   String?         @db.Uuid
+  orderId                    String?         @db.Uuid
+  coursePurchaseId           String?         @db.Uuid
+  projectInvoiceId           String?         @db.Uuid
+  requestedAmountMmk         Int
+  approvedAmountMmk          Int?
+  currency                   String          @default("MMK")
+  reason                     String
+  evidenceStorageKey         String?
+  status                     RefundStatus    @default(REQUESTED)
+  reviewerId                 String?         @db.Uuid
+  reviewerNote               String?
   refundTransactionReference String?
-  reviewedAt            DateTime?
-  completedAt           DateTime?
-  customer              User         @relation("RefundCustomer", fields: [customerId], references: [id], onDelete: Restrict)
-  ticket                SupportTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
-  order                 Order?       @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  coursePurchase        CoursePurchase? @relation(fields: [coursePurchaseId], references: [id], onDelete: Restrict)
-  projectInvoice        ProjectInvoice? @relation(fields: [projectInvoiceId], references: [id], onDelete: Restrict)
-  reviewer              User?        @relation("RefundReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
+  reviewedAt                 DateTime?
+  completedAt                DateTime?
+  customer                   User            @relation("RefundCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  ticket                     SupportTicket?  @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  order                      Order?          @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  coursePurchase             CoursePurchase? @relation(fields: [coursePurchaseId], references: [id], onDelete: Restrict)
+  projectInvoice             ProjectInvoice? @relation(fields: [projectInvoiceId], references: [id], onDelete: Restrict)
+  reviewer                   User?           @relation("RefundReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  createdAt                  DateTime        @default(now())
+  updatedAt                  DateTime        @updatedAt
+
   @@index([customerId, status, createdAt])
   @@index([status, createdAt])
 }
 
 model SupportFeedback {
-  id          String           @id @default(uuid()) @db.Uuid
-  ticketId    String?          @unique @db.Uuid
-  articleId   String?          @db.Uuid
-  customerId  String           @db.Uuid
-  rating      Int
-  comment     String?
-  ticket      SupportTicket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  article     KnowledgeArticle? @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  customer    User             @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  createdAt   DateTime         @default(now())
+  id         String            @id @default(uuid()) @db.Uuid
+  ticketId   String?           @unique @db.Uuid
+  articleId  String?           @db.Uuid
+  customerId String            @db.Uuid
+  rating     Int
+  comment    String?
+  ticket     SupportTicket?    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  article    KnowledgeArticle? @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  customer   User              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime          @default(now())
+
   @@index([articleId, createdAt])
   @@index([customerId, createdAt])
 }

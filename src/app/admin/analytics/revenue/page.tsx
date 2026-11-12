@@ -1,0 +1,6 @@
+import Link from 'next/link';
+import {RoleCode} from '@prisma/client';
+import {requireAdmin} from '@/lib/auth';
+import {prisma} from '@/lib/prisma';
+export const dynamic='force-dynamic';
+export default async function RevenueAnalytics(){await requireAdmin([RoleCode.SUPER_ADMIN,RoleCode.ADMIN]);const rows=await prisma.order.findMany({where:{status:'PAID'},select:{orderNumber:true,totalMmk:true,createdAt:true,customerEmail:true},orderBy:{createdAt:'desc'},take:100});return <main className="admin-content"><Link href="/admin/analytics" className="text-sm text-slate-400">← Analytics</Link><p className="eyebrow mt-5">REPORTING</p><h1 className="admin-title">Revenue detail</h1><p className="mt-2 text-sm text-slate-400">Marketplace paid orders, limited to 100 rows. Course and project revenue remain in the summary until export jobs are configured.</p><div className="admin-panel mt-8 overflow-x-auto"><table className="admin-table"><thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Verified amount</th></tr></thead><tbody>{rows.map(row=><tr key={row.orderNumber}><td>{row.orderNumber}</td><td>{row.customerEmail}</td><td>{row.createdAt.toLocaleDateString()}</td><td>{row.totalMmk.toLocaleString()} MMK</td></tr>)}</tbody></table>{!rows.length&&<p className="admin-empty">No verified marketplace revenue.</p>}</div></main>}
