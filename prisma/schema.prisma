@@ -11,6 +11,7 @@ enum RoleCode {
   SUPER_ADMIN
   ADMIN
   EDITOR
+  SUPPORT_AGENT
   CUSTOMER
 }
 enum TemplateStatus {
@@ -177,6 +178,33 @@ enum CourseReviewStatus {
   ACTIVE
   HIDDEN
 }
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+enum SupportPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+enum RefundStatus {
+  REQUESTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+enum KnowledgeStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
 
 model User {
   id           String       @id @default(uuid()) @db.Uuid
@@ -226,6 +254,18 @@ model User {
   assignmentSubmissions AssignmentSubmission[]
   courseCertificates CourseCertificate[]
   courseReviews CourseReview[]
+  supportTickets SupportTicket[] @relation("TicketCustomer")
+  assignedSupportTickets SupportTicket[] @relation("TicketAgent")
+  supportMessages SupportMessage[]
+  supportAttachments SupportAttachment[]
+  supportAssignments SupportAssignment[] @relation("SupportAgent")
+  assignedSupportTicketsHistory SupportAssignment[] @relation("AssignedBy")
+  supportStatusChanges SupportStatusHistory[]
+  authoredKnowledgeArticles KnowledgeArticle[] @relation("KnowledgeAuthor")
+  supportFeedback SupportFeedback[]
+  refundRequests RefundRequest[] @relation("RefundCustomer")
+  reviewedRefunds RefundRequest[] @relation("RefundReviewer")
+  supportMacros SupportMacro[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   lastLoginAt  DateTime?
@@ -341,6 +381,7 @@ model CourseEnrollment {
   purchase       CoursePurchase?  @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
   progress       LessonProgress[]
   certificates   CourseCertificate[]
+  supportTickets SupportTicket[]
   @@unique([courseId, studentId])
   @@index([studentId, status, enrolledAt])
 }
@@ -503,6 +544,7 @@ model CoursePurchase {
   paymentMethod       PaymentMethod?       @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
   reviewer            User?                @relation("CoursePurchaseReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
   enrollment          CourseEnrollment?
+  refundRequests      RefundRequest[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
   @@index([courseId, status, createdAt])
@@ -890,6 +932,8 @@ model Order {
   entitlements    DownloadEntitlement[]
   licenses        CustomerLicense[]
   couponRedemptions CouponRedemption[]
+  supportTickets SupportTicket[]
+  refundRequests RefundRequest[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   paidAt          DateTime?
@@ -1320,6 +1364,7 @@ model Project {
   files                ProjectFile[]
   invoices             ProjectInvoice[]
   activities           ProjectActivity[]
+  supportTickets       SupportTicket[]
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   @@index([status, updatedAt])
@@ -1438,6 +1483,7 @@ model ProjectInvoice {
   client      User                 @relation("InvoiceClient", fields: [clientId], references: [id], onDelete: Restrict)
   items       ProjectInvoiceItem[]
   payments    ProjectPaymentSubmission[]
+  refundRequests RefundRequest[]
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
   @@index([projectId, status, dueDate])
@@ -1502,4 +1548,214 @@ model LoginAttempt {
   key       String
   createdAt DateTime @default(now())
   @@index([key, createdAt])
+}
+
+model SupportCategory {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String            @unique
+  slug        String            @unique
+  description String?
+  sortOrder   Int               @default(0)
+  isEnabled   Boolean           @default(true)
+  tickets     SupportTicket[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  @@index([isEnabled, sortOrder])
+}
+
+model SupportTicket {
+  id                  String              @id @default(uuid()) @db.Uuid
+  ticketNumber        String              @unique
+  customerId          String              @db.Uuid
+  categoryId          String              @db.Uuid
+  assignedAgentId     String?             @db.Uuid
+  subject             String
+  description         String
+  status              SupportTicketStatus @default(OPEN)
+  priority            SupportPriority     @default(NORMAL)
+  firstResponseAt     DateTime?
+  resolvedAt          DateTime?
+  closedAt            DateTime?
+  slaResponseDueAt    DateTime?
+  slaResolutionDueAt  DateTime?
+  relatedOrderId      String?             @db.Uuid
+  relatedProjectId    String?             @db.Uuid
+  relatedEnrollmentId String?             @db.Uuid
+  customer            User                @relation("TicketCustomer", fields: [customerId], references: [id], onDelete: Cascade)
+  category            SupportCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  assignedAgent       User?               @relation("TicketAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  relatedOrder        Order?              @relation(fields: [relatedOrderId], references: [id], onDelete: SetNull)
+  relatedProject      Project?            @relation(fields: [relatedProjectId], references: [id], onDelete: SetNull)
+  relatedEnrollment   CourseEnrollment?   @relation(fields: [relatedEnrollmentId], references: [id], onDelete: SetNull)
+  messages            SupportMessage[]
+  attachments         SupportAttachment[]
+  assignments         SupportAssignment[]
+  statusHistory       SupportStatusHistory[]
+  feedback            SupportFeedback?
+  refundRequests      RefundRequest[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  @@index([customerId, status, createdAt])
+  @@index([assignedAgentId, status, updatedAt])
+  @@index([categoryId, status, createdAt])
+  @@index([status, priority, updatedAt])
+}
+
+model SupportMessage {
+  id          String            @id @default(uuid()) @db.Uuid
+  ticketId    String            @db.Uuid
+  senderId    String            @db.Uuid
+  body        String
+  isInternal  Boolean           @default(false)
+  readAt      DateTime?
+  ticket      SupportTicket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender      User              @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  attachments SupportAttachment[]
+  createdAt   DateTime          @default(now())
+  @@index([ticketId, isInternal, createdAt])
+}
+
+model SupportAttachment {
+  id          String          @id @default(uuid()) @db.Uuid
+  ticketId    String          @db.Uuid
+  messageId   String?         @db.Uuid
+  uploadedById String         @db.Uuid
+  storageKey  String
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  ticket      SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message     SupportMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  uploadedBy  User            @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  createdAt   DateTime        @default(now())
+  @@index([ticketId, createdAt])
+  @@index([messageId])
+}
+
+model SupportAssignment {
+  id           String        @id @default(uuid()) @db.Uuid
+  ticketId     String        @db.Uuid
+  agentId      String        @db.Uuid
+  assignedById String        @db.Uuid
+  assignedAt   DateTime      @default(now())
+  unassignedAt DateTime?
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  agent        User          @relation("SupportAgent", fields: [agentId], references: [id], onDelete: Restrict)
+  assignedBy   User          @relation("AssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  @@index([ticketId, assignedAt])
+  @@index([agentId, unassignedAt])
+}
+
+model SupportStatusHistory {
+  id        String              @id @default(uuid()) @db.Uuid
+  ticketId  String              @db.Uuid
+  actorId   String              @db.Uuid
+  fromStatus SupportTicketStatus?
+  toStatus  SupportTicketStatus
+  reason    String?
+  ticket    SupportTicket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor     User                @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  createdAt DateTime            @default(now())
+  @@index([ticketId, createdAt])
+}
+
+model SupportSlaPolicy {
+  id                    String          @id @default(uuid()) @db.Uuid
+  priority              SupportPriority @unique
+  firstResponseMinutes  Int
+  resolutionMinutes     Int
+  timezone              String          @default("Asia/Yangon")
+  pauseWhileWaiting     Boolean         @default(true)
+  isEnabled             Boolean         @default(true)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+}
+
+model KnowledgeCategory {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String            @unique
+  slug        String            @unique
+  description String?
+  articles    KnowledgeArticle[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model KnowledgeArticle {
+  id             String          @id @default(uuid()) @db.Uuid
+  slug           String          @unique
+  title          String
+  excerpt        String
+  content        Json
+  categoryId     String          @db.Uuid
+  authorId       String          @db.Uuid
+  status         KnowledgeStatus @default(DRAFT)
+  isFeatured     Boolean         @default(false)
+  seoTitle       String?
+  seoDescription String?
+  publishedAt    DateTime?
+  category       KnowledgeCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  author         User            @relation("KnowledgeAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  feedback       SupportFeedback[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  @@index([status, publishedAt])
+  @@index([categoryId, status])
+}
+
+model RefundRequest {
+  id                    String       @id @default(uuid()) @db.Uuid
+  requestNumber         String       @unique
+  customerId            String       @db.Uuid
+  ticketId              String?      @db.Uuid
+  orderId               String?      @db.Uuid
+  coursePurchaseId      String?      @db.Uuid
+  projectInvoiceId      String?      @db.Uuid
+  requestedAmountMmk    Int
+  approvedAmountMmk     Int?
+  currency              String       @default("MMK")
+  reason                String
+  evidenceStorageKey    String?
+  status                RefundStatus @default(REQUESTED)
+  reviewerId            String?      @db.Uuid
+  reviewerNote          String?
+  refundTransactionReference String?
+  reviewedAt            DateTime?
+  completedAt           DateTime?
+  customer              User         @relation("RefundCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  ticket                SupportTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  order                 Order?       @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  coursePurchase        CoursePurchase? @relation(fields: [coursePurchaseId], references: [id], onDelete: Restrict)
+  projectInvoice        ProjectInvoice? @relation(fields: [projectInvoiceId], references: [id], onDelete: Restrict)
+  reviewer              User?        @relation("RefundReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  @@index([customerId, status, createdAt])
+  @@index([status, createdAt])
+}
+
+model SupportFeedback {
+  id          String           @id @default(uuid()) @db.Uuid
+  ticketId    String?          @unique @db.Uuid
+  articleId   String?          @db.Uuid
+  customerId  String           @db.Uuid
+  rating      Int
+  comment     String?
+  ticket      SupportTicket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  article     KnowledgeArticle? @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  customer    User             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now())
+  @@index([articleId, createdAt])
+  @@index([customerId, createdAt])
+}
+
+model SupportMacro {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  body        String
+  isEnabled   Boolean  @default(true)
+  createdById String   @db.Uuid
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
