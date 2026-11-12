@@ -1,4 +1,5 @@
 import './admin.css';
+import './responsive.css';
 import Link from 'next/link';
 import {BarChart3,BriefcaseBusiness,FileText,FolderKanban,KeyRound,LayoutDashboard,LogOut,Menu,Package,PanelTop,Settings,Star,Ticket} from 'lucide-react';
 import {currentUser} from '@/lib/auth';

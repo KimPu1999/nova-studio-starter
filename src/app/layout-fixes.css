@@ -1,0 +1,5 @@
+html,body{max-width:100%;overflow-x:hidden}
+img,video{max-width:100%;height:auto}
+.page-pad,.container-wide{min-width:0}
+body:has(.admin-shell)>header.site-header,body:has(.admin-shell)>footer{display:none}
+@media(max-width:768px){.page-title{font-size:clamp(2.35rem,12vw,4rem);overflow-wrap:anywhere}.page-description{font-size:.95rem}.catalog-toolbar{align-items:stretch}.search-field{width:100%}.sort-select,.catalog-toolbar .btn-outline{flex:1}}
