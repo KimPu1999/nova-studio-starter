@@ -94,6 +94,36 @@ enum WorkspaceApprovalStatus {
   CANCELLED
 }
 
+enum SecurityAlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum PrivacyRequestType {
+  EXPORT
+  DELETE
+  ACCESS
+}
+
+enum PrivacyRequestStatus {
+  REQUESTED
+  UNDER_REVIEW
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+}
+
+enum SecurityIncidentStatus {
+  OPEN
+  INVESTIGATING
+  CONTAINED
+  RECOVERING
+  RESOLVED
+  CLOSED
+}
+
 enum TemplateStatus {
   DRAFT
   PUBLISHED
@@ -478,6 +508,19 @@ model User {
   reviewedClientApprovals       ClientApprovalRequest[]       @relation("ApprovalReviewer")
   workspaceAuditEvents          WorkspaceAuditLog[]
   workspaceCreditActions        WorkspaceCreditLedger[]
+  mfaCredential                 MfaCredential?
+  securityEvents                SecurityEvent[]
+  securityAlerts                SecurityAlert[]           @relation("AlertActor")
+  apiCredentials               ApiCredential[]
+  createdServiceAccounts       ServiceAccount[]          @relation("ServiceAccountCreator")
+  privacyRequests              PrivacyRequest[]
+  securityIncidents            SecurityIncident[]         @relation("IncidentOwner")
+  securityAuditEvents          SecurityAuditLog[]
+  securitySessions             SecuritySession[]
+  updatedSecurityPolicies      SecurityPolicy[]            @relation("SecurityPolicyUpdater")
+  reviewedPrivacyRequests      PrivacyRequest[]            @relation("PrivacyReviewer")
+  updatedRetentionPolicies     DataRetentionPolicy[]       @relation("RetentionPolicyUpdater")
+  securityIncidentEvents       SecurityIncidentEvent[]
 
   @@index([roleId])
 }
@@ -1126,6 +1169,7 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+  securitySession SecuritySession?
 
   @@index([userId, expiresAt])
 }
@@ -2675,6 +2719,10 @@ model Organization {
   owner       User          @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   createdBy   User          @relation("OrganizationCreator", fields: [createdById], references: [id], onDelete: Restrict)
   workspaces  Workspace[]
+  identityProviders IdentityProviderConfig[]
+  securityPolicies SecurityPolicy[]
+  securityAuditLogs SecurityAuditLog[]
+  securityEvents SecurityEvent[]
 
   @@index([ownerId, createdAt])
 }
@@ -2699,6 +2747,16 @@ model Workspace {
   creditEntries   WorkspaceCreditLedger[]
   usageRecords    WorkspaceUsageRecord[]
   auditEvents     WorkspaceAuditLog[]
+  securityPolicy  SecurityPolicy?
+  securityEvents  SecurityEvent[]
+  securityAlerts  SecurityAlert[]
+  apiCredentials  ApiCredential[]
+  serviceAccounts ServiceAccount[]
+  privacyRequests PrivacyRequest[]
+  retentionPolicies DataRetentionPolicy[]
+  incidents       SecurityIncident[]
+  securityAuditLogs SecurityAuditLog[]
+  securitySessions SecuritySession[]
 
   @@index([organizationId, updatedAt])
 }
@@ -2949,4 +3007,246 @@ model WorkspaceAuditLog {
 
   @@index([workspaceId, createdAt])
   @@index([workspaceId, action, createdAt])
+}
+
+model MfaCredential {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @unique @db.Uuid
+  secretCiphertext String
+  encryptionVersion Int     @default(1)
+  enabled         Boolean   @default(false)
+  verifiedAt      DateTime?
+  lastUsedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recoveryCodes   MfaRecoveryCode[]
+}
+
+model MfaRecoveryCode {
+  id           String        @id @default(uuid()) @db.Uuid
+  credentialId String        @db.Uuid
+  codeHash     String        @unique
+  usedAt       DateTime?
+  createdAt    DateTime      @default(now())
+  credential   MfaCredential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@index([credentialId, usedAt])
+}
+
+model SecuritySession {
+  id           String    @id @default(uuid()) @db.Uuid
+  sessionId    String    @unique @db.Uuid
+  userId       String    @db.Uuid
+  workspaceId  String?   @db.Uuid
+  userAgent    String?
+  ipAddressHash String?
+  lastActivityAt DateTime @default(now())
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  session      Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([userId, revokedAt, lastActivityAt])
+  @@index([workspaceId, createdAt])
+}
+
+model SecurityEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String?   @db.Uuid
+  organizationId String? @db.Uuid
+  workspaceId String?   @db.Uuid
+  action      String
+  severity    String
+  resource    String?
+  resourceId  String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  alerts      SecurityAlert[]
+
+  @@index([action, createdAt])
+  @@index([userId, createdAt])
+  @@index([workspaceId, createdAt])
+}
+
+model SecurityAlert {
+  id            String            @id @default(uuid()) @db.Uuid
+  eventId       String?           @db.Uuid
+  workspaceId   String?           @db.Uuid
+  status        SecurityAlertStatus @default(OPEN)
+  severity      String
+  kind          String
+  summary       String
+  actorId       String?           @db.Uuid
+  acknowledgedAt DateTime?
+  resolvedAt    DateTime?
+  createdAt     DateTime          @default(now())
+  event         SecurityEvent?    @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  workspace     Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  actor         User?             @relation("AlertActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([status, severity, createdAt])
+  @@index([workspaceId, status, createdAt])
+}
+
+model SecurityPolicy {
+  id                 String       @id @default(uuid()) @db.Uuid
+  organizationId     String?      @unique @db.Uuid
+  workspaceId        String?      @unique @db.Uuid
+  requireMfa         Boolean      @default(false)
+  sessionDurationHours Int        @default(8)
+  invitationExpiryDays Int        @default(7)
+  allowedEmailDomains String[]
+  apiKeysEnabled     Boolean      @default(true)
+  securityNotifications Boolean   @default(true)
+  updatedById        String?      @db.Uuid
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  organization       Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace          Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  updatedBy          User?        @relation("SecurityPolicyUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+}
+
+model IdentityProviderConfig {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  providerType   String
+  issuer         String
+  clientId       String
+  encryptedSecret String
+  isEnabled      Boolean      @default(false)
+  enforceSso     Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, providerType])
+  @@index([organizationId, isEnabled])
+}
+
+model ApiCredential {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @db.Uuid
+  workspaceId    String?      @db.Uuid
+  name           String
+  keyPrefix      String
+  keyHash        String       @unique
+  scopes         String[]
+  expiresAt      DateTime?
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt, expiresAt])
+  @@index([workspaceId, revokedAt, expiresAt])
+}
+
+model ServiceAccount {
+  id             String       @id @default(uuid()) @db.Uuid
+  workspaceId    String       @db.Uuid
+  createdById    String       @db.Uuid
+  name           String
+  clientId       String       @unique
+  secretHash     String       @unique
+  scopes         String[]
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy      User         @relation("ServiceAccountCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, revokedAt, expiresAt])
+}
+
+model SecurityAuditLog {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String?      @db.Uuid
+  workspaceId    String?      @db.Uuid
+  actorId        String?      @db.Uuid
+  action         String
+  resource       String
+  resourceId     String?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  workspace      Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  actor          User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([workspaceId, createdAt])
+  @@index([action, createdAt])
+}
+
+model PrivacyRequest {
+  id             String              @id @default(uuid()) @db.Uuid
+  userId         String              @db.Uuid
+  workspaceId    String?             @db.Uuid
+  type           PrivacyRequestType
+  status         PrivacyRequestStatus @default(REQUESTED)
+  reason         String?
+  exportKey      String?
+  reviewedById   String?             @db.Uuid
+  reviewedAt     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  user           User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  workspace      Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  reviewedBy     User?               @relation("PrivacyReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, status, createdAt])
+  @@index([workspaceId, status, createdAt])
+}
+
+model DataRetentionPolicy {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @db.Uuid
+  dataType    String
+  retentionDays Int
+  isEnabled   Boolean   @default(true)
+  updatedById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  updatedBy   User?     @relation("RetentionPolicyUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, dataType])
+}
+
+model SecurityIncident {
+  id          String                 @id @default(uuid()) @db.Uuid
+  workspaceId String?                @db.Uuid
+  title       String
+  description String
+  severity    String
+  status      SecurityIncidentStatus @default(OPEN)
+  ownerId     String?                @db.Uuid
+  resolutionNotes String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  workspace   Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  owner       User?                  @relation("IncidentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  events      SecurityIncidentEvent[]
+
+  @@index([workspaceId, status, createdAt])
+  @@index([status, severity, createdAt])
+}
+
+model SecurityIncidentEvent {
+  id          String           @id @default(uuid()) @db.Uuid
+  incidentId  String           @db.Uuid
+  actorId     String?          @db.Uuid
+  eventType   String
+  details     Json?
+  createdAt   DateTime         @default(now())
+  incident    SecurityIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  actor       User?            @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([incidentId, createdAt])
 }
