@@ -26,6 +26,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nova_studio_test?schema=public
       SESSION_SECRET: ci-only-secret-that-is-longer-than-32-characters
       PUBLIC_WEBSITE_URL: http://localhost:3000
+      PRIVATE_STORAGE_DIR: ./.private-storage-ci
       ADMIN_EMAIL: ci-admin@example.com
       ADMIN_PASSWORD: CI-only-1234
     steps:
@@ -38,6 +39,10 @@ jobs:
       - run: npx prisma generate
       - run: npx prisma migrate deploy
       - run: npx prisma validate
+      - name: Validate production environment contract
+        run: npm run validate:env
+        env:
+          NODE_ENV: production
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test -- --run
