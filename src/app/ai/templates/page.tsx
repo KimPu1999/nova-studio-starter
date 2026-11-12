@@ -1,0 +1,13 @@
+import Link from 'next/link';
+import { Search, Sparkles } from 'lucide-react';
+import { prisma } from '@/lib/prisma';
+
+export const dynamic = 'force-dynamic';
+
+export default async function AiTemplateRecommendations({ searchParams }: { searchParams: Promise<{ q?: string; max?: string }> }) {
+  const params = await searchParams;
+  const q = params.q?.trim();
+  const max = params.max ? Number(params.max) : undefined;
+  const products = await prisma.template.findMany({ where: { status: 'PUBLISHED', vendorStatus: 'APPROVED', ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { description: { contains: q, mode: 'insensitive' } }, { technology: { has: q } }] } : {}), ...(Number.isInteger(max) && max && max > 0 ? { priceMmk: { lte: max } } : {}) }, include: { category: true }, orderBy: { createdAt: 'desc' }, take: 24 });
+  return <main className="container-wide page-pad"><div className="flex items-end justify-between gap-4"><div><span className="eyebrow">SMART MARKETPLACE</span><h1 className="page-title">Find a strong starting point.</h1><p className="page-description">These recommendations use published marketplace data and deterministic filters only.</p></div><Sparkles className="hidden text-violet-300 sm:block"/></div><form className="mt-8 flex flex-wrap gap-3"><label className="sr-only" htmlFor="q">Search templates</label><div className="relative min-w-[240px] flex-1"><Search className="absolute left-3 top-3.5 text-slate-500" size={17}/><input id="q" name="q" defaultValue={q} placeholder="Describe a style, technology, or use case" className="admin-input pl-10"/></div><input name="max" defaultValue={params.max} inputMode="numeric" placeholder="Max MMK" className="admin-input w-32"/><button className="btn-primary" type="submit">Recommend</button></form><section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{products.map((product)=><article key={product.id} className="admin-panel"><p className="text-xs uppercase tracking-[0.16em] text-violet-300">{product.category.name}</p><h2 className="mt-3 font-semibold">{product.name}</h2><p className="mt-2 line-clamp-3 text-sm text-slate-400">{product.description}</p><div className="mt-5 flex items-center justify-between"><span className="text-sm font-semibold text-cyan-200">{product.priceMmk.toLocaleString()} MMK</span><Link className="text-sm text-violet-300 hover:text-violet-200" href={`/templates/${product.slug}`}>View product</Link></div></article>)}{products.length === 0 && <div className="admin-empty sm:col-span-2 lg:col-span-3">No published templates match those filters.</div>}</section></main>;
+}

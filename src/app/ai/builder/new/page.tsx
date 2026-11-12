@@ -1,0 +1,9 @@
+import Link from 'next/link';
+import { createAiWebsiteProject } from '../actions';
+import { requireUser } from '@/lib/auth';
+
+export default async function NewAiWebsitePage() {
+  await requireUser();
+  return <main className="admin-content max-w-3xl"><p className="eyebrow">NEW AI PROJECT</p><h1 className="admin-title">Start a website brief.</h1><p className="mt-2 text-sm text-slate-400">This creates a private validated draft. External generation is not active in this environment.</p><form action={createAiWebsiteProject} className="admin-panel mt-8 space-y-5"><Field name="name" label="Project name" required/><Field name="description" label="Business description" required textarea/><label className="block text-sm text-slate-300">Website type<select name="websiteType" className="admin-input mt-2" defaultValue="BUSINESS"><option value="PORTFOLIO">Portfolio</option><option value="BUSINESS">Business website</option><option value="LANDING_PAGE">Landing page</option><option value="AGENCY">Agency</option><option value="PRODUCT_SHOWCASE">Product showcase</option><option value="ECOMMERCE_CONCEPT">E-commerce concept</option></select></label><label className="block text-sm text-slate-300">Language<select name="language" className="admin-input mt-2" defaultValue="en"><option value="en">English</option><option value="my">Myanmar</option></select></label><div className="flex gap-3"><button className="btn-primary" type="submit">Create draft</button><Link href="/ai/builder" className="btn-ghost">Cancel</Link></div></form></main>;
+}
+function Field({ name, label, required, textarea }: { name: string; label: string; required?: boolean; textarea?: boolean }) { const C = textarea ? 'textarea' : 'input'; return <label className="block text-sm text-slate-300">{label}{required && <span className="text-violet-300"> *</span>}<C name={name} required={required} className="admin-input mt-2" rows={textarea ? 5 : undefined}/></label>; }
