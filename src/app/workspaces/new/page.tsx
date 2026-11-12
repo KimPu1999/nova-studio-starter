@@ -1,0 +1,5 @@
+import Link from 'next/link';
+import { requireUser } from '@/lib/auth';
+import { createOrganization } from '../actions';
+
+export default async function NewWorkspacePage() { await requireUser(); return <main className="admin-content max-w-3xl"><p className="eyebrow">NEW ORGANIZATION</p><h1 className="admin-title">Set up your workspace.</h1><form action={createOrganization} className="admin-panel mt-8 space-y-5"><label className="block text-sm text-slate-300">Organization name<input name="name" className="admin-input mt-2" required maxLength={120}/></label><label className="block text-sm text-slate-300">Organization slug<input name="slug" className="admin-input mt-2" required pattern="[a-z0-9-]{3,50}" placeholder="nova-agency"/></label><label className="block text-sm text-slate-300">First workspace slug<input name="workspaceSlug" className="admin-input mt-2" required pattern="[a-z0-9-]{3,50}" placeholder="main"/></label><div className="flex gap-3"><button className="btn-primary">Create workspace</button><Link href="/workspaces" className="btn-ghost">Cancel</Link></div></form></main>; }

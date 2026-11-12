@@ -67,6 +67,33 @@ enum HostingSubscriptionStatus {
   EXPIRED
 }
 
+enum WorkspaceMemberRole {
+  OWNER
+  ADMIN
+  MANAGER
+  EDITOR
+  DEVELOPER
+  VIEWER
+}
+
+enum WorkspaceInvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  REVOKED
+  EXPIRED
+}
+
+enum WorkspaceApprovalStatus {
+  DRAFT
+  REQUESTED
+  IN_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 enum TemplateStatus {
   DRAFT
   PUBLISHED
@@ -436,6 +463,21 @@ model User {
   hostingPayments               HostingPayment[]
   reviewedHostingPayments       HostingPayment[]       @relation("HostingPaymentReviewer")
   hostingAuditLogs              WebsiteHostingAuditLog[]
+  ownedOrganizations            Organization[]             @relation("OrganizationOwner")
+  createdOrganizations          Organization[]             @relation("OrganizationCreator")
+  workspaceMemberships          WorkspaceMember[]
+  sentWorkspaceInvitations      WorkspaceInvitation[]      @relation("InvitationSender")
+  acceptedWorkspaceInvitations  WorkspaceInvitation[]      @relation("InvitationAcceptor")
+  createdWorkspaceProjects      WorkspaceProject[]          @relation("WorkspaceProjectCreator")
+  workspaceProjectMemberships   WorkspaceProjectMember[]
+  createdWorkspaceAssets        WorkspaceAsset[]             @relation("AssetCreator")
+  createdBrandKits              WorkspaceBrandKit[]          @relation("BrandKitCreator")
+  createdAgencyClients          AgencyClient[]                @relation("AgencyClientCreator")
+  agencyClientMemberships      AgencyClientMember[]
+  requestedClientApprovals      ClientApprovalRequest[]       @relation("ApprovalRequester")
+  reviewedClientApprovals       ClientApprovalRequest[]       @relation("ApprovalReviewer")
+  workspaceAuditEvents          WorkspaceAuditLog[]
+  workspaceCreditActions        WorkspaceCreditLedger[]
 
   @@index([roleId])
 }
@@ -2323,6 +2365,7 @@ model AiWebsiteProject {
   user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   revisions   AiWebsiteRevision[]
   hostedWebsites HostedWebsite[]
+  workspaceProject WorkspaceProject?
 
   @@index([userId, updatedAt])
 }
@@ -2336,6 +2379,7 @@ model AiWebsiteRevision {
   createdAt   DateTime         @default(now())
   project     AiWebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdBy   User             @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  clientApprovals ClientApprovalRequest[]
 
   @@unique([projectId, version])
   @@index([projectId, createdAt])
@@ -2616,4 +2660,293 @@ model WebsiteHostingAuditLog {
 
   @@index([websiteId, createdAt])
   @@index([userId, createdAt])
+}
+
+model Organization {
+  id          String        @id @default(uuid()) @db.Uuid
+  ownerId     String        @db.Uuid
+  createdById String        @db.Uuid
+  name        String
+  slug        String        @unique
+  description String?
+  logoKey     String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  owner       User          @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  createdBy   User          @relation("OrganizationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  workspaces  Workspace[]
+
+  @@index([ownerId, createdAt])
+}
+
+model Workspace {
+  id              String                    @id @default(uuid()) @db.Uuid
+  organizationId  String                    @db.Uuid
+  name            String
+  slug            String                    @unique
+  description     String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  organization    Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members         WorkspaceMember[]
+  invitations     WorkspaceInvitation[]
+  projects        WorkspaceProject[]
+  assets          WorkspaceAsset[]
+  brandKits       WorkspaceBrandKit[]
+  clients         AgencyClient[]
+  approvals       ClientApprovalRequest[]
+  subscriptions   WorkspaceSubscription[]
+  creditEntries   WorkspaceCreditLedger[]
+  usageRecords    WorkspaceUsageRecord[]
+  auditEvents     WorkspaceAuditLog[]
+
+  @@index([organizationId, updatedAt])
+}
+
+model WorkspaceMember {
+  id          String             @id @default(uuid()) @db.Uuid
+  workspaceId String             @db.Uuid
+  userId      String             @db.Uuid
+  role        WorkspaceMemberRole @default(VIEWER)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  workspace   Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId, workspaceId])
+  @@index([workspaceId, role])
+}
+
+model WorkspaceInvitation {
+  id          String                    @id @default(uuid()) @db.Uuid
+  workspaceId String                    @db.Uuid
+  email       String
+  tokenHash   String                    @unique
+  role        WorkspaceMemberRole       @default(VIEWER)
+  status      WorkspaceInvitationStatus @default(PENDING)
+  invitedById String                    @db.Uuid
+  acceptedById String?                  @db.Uuid
+  expiresAt   DateTime
+  createdAt   DateTime                  @default(now())
+  acceptedAt  DateTime?
+  workspace   Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy   User                      @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Restrict)
+  acceptedBy  User?                     @relation("InvitationAcceptor", fields: [acceptedById], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, email, status])
+  @@index([email, status, expiresAt])
+  @@index([workspaceId, status, createdAt])
+}
+
+model WorkspaceProject {
+  id          String                    @id @default(uuid()) @db.Uuid
+  workspaceId String                    @db.Uuid
+  aiProjectId String                    @unique @db.Uuid
+  createdById String                    @db.Uuid
+  status      String                    @default("ACTIVE")
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+  workspace   Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  aiProject   AiWebsiteProject          @relation(fields: [aiProjectId], references: [id], onDelete: Restrict)
+  createdBy   User                      @relation("WorkspaceProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  members     WorkspaceProjectMember[]
+  approvals   ClientApprovalRequest[]
+
+  @@index([workspaceId, updatedAt])
+}
+
+model WorkspaceProjectMember {
+  id          String             @id @default(uuid()) @db.Uuid
+  projectId   String             @db.Uuid
+  userId      String             @db.Uuid
+  role        WorkspaceMemberRole @default(VIEWER)
+  createdAt   DateTime           @default(now())
+  project     WorkspaceProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId, projectId])
+}
+
+model WorkspaceAsset {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @db.Uuid
+  createdById String    @db.Uuid
+  name        String
+  storageKey  String
+  mimeType    String
+  sizeBytes   Int
+  status      String    @default("ACTIVE")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation("AssetCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([workspaceId, storageKey])
+  @@index([workspaceId, status, createdAt])
+}
+
+model WorkspaceBrandKit {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @db.Uuid
+  createdById String    @db.Uuid
+  name        String
+  tokens      Json
+  version     Int       @default(1)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation("BrandKitCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId, updatedAt])
+}
+
+model AgencyClient {
+  id          String                @id @default(uuid()) @db.Uuid
+  workspaceId String                @db.Uuid
+  createdById String                @db.Uuid
+  companyName String
+  contactName String
+  email       String
+  phone       String?
+  status      String                @default("ACTIVE")
+  notes       String?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User                  @relation("AgencyClientCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  members     AgencyClientMember[]
+  approvals   ClientApprovalRequest[]
+  feedback    ClientFeedback[]
+
+  @@index([workspaceId, status, createdAt])
+  @@index([workspaceId, email])
+}
+
+model AgencyClientMember {
+  id       String       @id @default(uuid()) @db.Uuid
+  clientId String       @db.Uuid
+  userId   String       @db.Uuid
+  createdAt DateTime    @default(now())
+  client   AgencyClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, userId])
+  @@index([userId, clientId])
+}
+
+model ClientApprovalRequest {
+  id          String                 @id @default(uuid()) @db.Uuid
+  workspaceId String                 @db.Uuid
+  projectId   String                 @db.Uuid
+  revisionId  String                 @db.Uuid
+  clientId    String                 @db.Uuid
+  requestedById String               @db.Uuid
+  reviewerId  String?                @db.Uuid
+  status      WorkspaceApprovalStatus @default(DRAFT)
+  message     String?
+  feedbackText String?
+  requestedAt DateTime?
+  reviewedAt  DateTime?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  workspace   Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     WorkspaceProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  revision    AiWebsiteRevision      @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  client      AgencyClient           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requestedBy User                  @relation("ApprovalRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewer    User?                 @relation("ApprovalReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  feedback    ClientFeedback[]
+
+  @@index([workspaceId, status, createdAt])
+  @@index([clientId, status])
+  @@unique([revisionId, clientId, status])
+}
+
+model ClientFeedback {
+  id          String               @id @default(uuid()) @db.Uuid
+  approvalId  String               @db.Uuid
+  clientId    String               @db.Uuid
+  content     String
+  createdAt   DateTime             @default(now())
+  approval    ClientApprovalRequest @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  client      AgencyClient         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([approvalId, createdAt])
+  @@index([clientId, createdAt])
+}
+
+model WorkspaceSubscription {
+  id             String    @id @default(uuid()) @db.Uuid
+  workspaceId    String    @db.Uuid
+  planCode       String
+  priceMmk       Int
+  currency       String    @default("MMK")
+  status         String    @default("PENDING_PAYMENT")
+  seatLimit      Int
+  aiCreditLimit  Int
+  snapshot       Json
+  idempotencyKey String    @unique
+  startsAt       DateTime?
+  renewsAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, status])
+}
+
+model WorkspaceCreditLedger {
+  id             String    @id @default(uuid()) @db.Uuid
+  workspaceId    String    @db.Uuid
+  actorId        String?   @db.Uuid
+  amount         Int
+  type           String
+  idempotencyKey String    @unique
+  projectId      String?   @db.Uuid
+  userId         String?   @db.Uuid
+  note           String?
+  createdAt      DateTime  @default(now())
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  actor          User?     @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, projectId, createdAt])
+}
+
+model WorkspaceUsageRecord {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @db.Uuid
+  periodStart DateTime
+  periodEnd   DateTime
+  seats       Int       @default(0)
+  projects    Int       @default(0)
+  websites    Int       @default(0)
+  domains     Int       @default(0)
+  storageMb   Int       @default(0)
+  deployments Int       @default(0)
+  isEstimated Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, periodStart, periodEnd])
+  @@index([workspaceId, periodStart])
+}
+
+model WorkspaceAuditLog {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @db.Uuid
+  actorId     String?   @db.Uuid
+  action      String
+  resource    String
+  resourceId  String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor       User?     @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, action, createdAt])
 }
