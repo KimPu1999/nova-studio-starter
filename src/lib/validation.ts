@@ -1,0 +1,5 @@
+import {z} from 'zod';
+export const templateSchema=z.object({name:z.string().trim().min(2).max(120),slug:z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(140),description:z.string().trim().min(10).max(2000),priceMmk:z.coerce.number().int().min(0).max(100_000_000),demoUrl:z.string().url().optional().or(z.literal('')),thumbnailUrl:z.string().url().optional().or(z.literal('')),technology:z.string().trim().min(1).max(300),licenseType:z.string().trim().min(2).max(80),categoryId:z.string().uuid(),status:z.enum(['DRAFT','PUBLISHED','ARCHIVED'])});
+export const categorySchema=z.object({name:z.string().trim().min(2).max(80),slug:z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(100)});
+export const loginSchema=z.object({email:z.string().email().max(254),password:z.string().min(1).max(200)});
+export const inquirySchema=z.object({name:z.string().trim().min(2).max(100),email:z.string().email().max(254),projectType:z.string().trim().min(2).max(100),message:z.string().trim().min(10).max(5000)});

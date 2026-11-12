@@ -1,0 +1,3 @@
+import {prisma,databaseConfigured} from './prisma';import {products} from './data';
+export async function getPublishedProducts(){if(!databaseConfigured)return products;const rows=await prisma.template.findMany({where:{status:'PUBLISHED'},include:{category:true},orderBy:{createdAt:'desc'}});return rows.map(p=>({slug:p.slug,name:p.name,category:p.category.name,price:p.priceMmk,description:p.description,gradient:'from-violet-700 via-fuchsia-800 to-slate-950',tag:'Featured',features:['Responsive layout','Reusable components','Production-ready structure'],stack:p.technology}));}
+export async function getPublishedProduct(slug:string){const list=await getPublishedProducts();return list.find(p=>p.slug===slug);}
