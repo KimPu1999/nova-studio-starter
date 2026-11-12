@@ -1,0 +1,1 @@
+import {requireCmsEditor} from '@/lib/auth';import {CmsPageForm} from '../form';export default async function NewPage(){await requireCmsEditor();return <main className="admin-content"><h1 className="admin-title">New CMS page</h1><div className="mt-8"><CmsPageForm/></div></main>}
