@@ -11,6 +11,7 @@ enum RoleCode {
   SUPER_ADMIN
   ADMIN
   EDITOR
+  CUSTOMER
 }
 enum TemplateStatus {
   DRAFT
@@ -22,6 +23,18 @@ enum InquiryStatus {
   IN_PROGRESS
   CLOSED
 }
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAYMENT_REVIEW
+  PAID
+  CANCELLED
+  REFUNDED
+}
+enum PaymentSubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
 
 model User {
   id           String       @id @default(uuid()) @db.Uuid
@@ -32,6 +45,13 @@ model User {
   role         AdminRole    @relation(fields: [roleId], references: [id])
   sessions     Session[]
   auditLogs    AuditLog[]
+  carts        Cart[]
+  orders       Order[]
+  paymentSubmissions PaymentSubmission[]
+  paymentReviews PaymentReview[]
+  downloadEntitlements DownloadEntitlement[]
+  downloadEvents DownloadEvent[]
+  passwordResetTokens PasswordResetToken[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   lastLoginAt  DateTime?
@@ -60,9 +80,15 @@ model Template {
   categoryId    String          @db.Uuid
   category      Category        @relation(fields: [categoryId], references: [id])
   images        TemplateImage[]
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  downloadEntitlements DownloadEntitlement[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   publishedAt   DateTime?
+  sourceFileStorageKey String?
+  sourceFileName String?
+  sourceFileSize Int?
   @@index([status, createdAt])
   @@index([categoryId, status])
 }
@@ -149,6 +175,162 @@ model Session {
   userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([userId, expiresAt])
+}
+
+model Cart {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @unique @db.Uuid
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  cartId     String   @db.Uuid
+  templateId String   @db.Uuid
+  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  template   Template @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  createdAt  DateTime @default(now())
+  @@unique([cartId, templateId])
+  @@index([templateId])
+}
+
+model Order {
+  id              String        @id @default(uuid()) @db.Uuid
+  orderNumber     String        @unique
+  userId          String        @db.Uuid
+  user            User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  status          OrderStatus   @default(PENDING_PAYMENT)
+  currency        String        @default("MMK")
+  subtotalMmk     Int
+  totalMmk        Int
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  orderNotes      String?
+  idempotencyKey  String
+  items           OrderItem[]
+  payments        PaymentSubmission[]
+  entitlements    DownloadEntitlement[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  paidAt          DateTime?
+  @@unique([userId, idempotencyKey])
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+model OrderItem {
+  id             String    @id @default(uuid()) @db.Uuid
+  orderId        String    @db.Uuid
+  templateId     String?   @db.Uuid
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  template       Template? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  templateName   String
+  templateSlug   String
+  unitPriceMmk   Int
+  currency       String    @default("MMK")
+  quantity       Int       @default(1)
+  createdAt      DateTime  @default(now())
+  @@unique([orderId, templateSlug])
+  @@index([templateId])
+}
+
+model PaymentMethod {
+  id              String   @id @default(uuid()) @db.Uuid
+  code            String   @unique
+  name            String
+  accountHolderName String
+  walletNumber    String
+  qrStorageKey    String?
+  instructions    String
+  isEnabled       Boolean  @default(false)
+  displayOrder    Int      @default(0)
+  payments        PaymentSubmission[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([isEnabled, displayOrder])
+}
+
+model PaymentSubmission {
+  id                    String                   @id @default(uuid()) @db.Uuid
+  orderId               String                   @db.Uuid
+  paymentMethodId       String                   @db.Uuid
+  submittedById         String                   @db.Uuid
+  amountMmk             Int
+  currency              String                   @default("MMK")
+  transactionReference  String
+  proofStorageKey        String
+  proofMimeType          String
+  status                PaymentSubmissionStatus @default(PENDING)
+  idempotencyKey        String                   @unique
+  order                 Order                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  paymentMethod         PaymentMethod            @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  submittedBy           User                     @relation(fields: [submittedById], references: [id], onDelete: Restrict)
+  review                PaymentReview?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  @@index([orderId, status, createdAt])
+  @@index([submittedById, createdAt])
+}
+
+model PaymentReview {
+  id             String                   @id @default(uuid()) @db.Uuid
+  submissionId   String                   @unique @db.Uuid
+  reviewerId     String                   @db.Uuid
+  decision       PaymentSubmissionStatus
+  rejectionReason String?
+  verifiedNote   String?
+  reviewedAt     DateTime                 @default(now())
+  submission     PaymentSubmission        @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  reviewer       User                     @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+  @@index([reviewerId, reviewedAt])
+}
+
+model DownloadEntitlement {
+  id             String    @id @default(uuid()) @db.Uuid
+  orderId        String    @db.Uuid
+  templateId     String    @db.Uuid
+  userId         String    @db.Uuid
+  maxDownloads   Int       @default(5)
+  downloadCount  Int       @default(0)
+  tokenVersion   Int       @default(1)
+  revokedAt      DateTime?
+  order          Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  template       Template  @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  downloadEvents DownloadEvent[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  @@unique([orderId, templateId])
+  @@unique([orderId, templateId, userId])
+  @@index([userId, revokedAt])
+}
+
+model DownloadEvent {
+  id            String              @id @default(uuid()) @db.Uuid
+  entitlementId String              @db.Uuid
+  userId        String              @db.Uuid
+  ipHash        String?
+  userAgent     String?
+  createdAt     DateTime            @default(now())
+  entitlement   DownloadEntitlement @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
+  user          User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@index([entitlementId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  tokenHash String   @unique
+  userId    String   @db.Uuid
+  expiresAt DateTime
+  usedAt    DateTime?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   @@index([userId, expiresAt])
 }

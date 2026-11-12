@@ -1,0 +1,4 @@
+import {SignJWT,jwtVerify} from 'jose';import {prisma} from './prisma';
+function secret(){const value=process.env.SESSION_SECRET;if(!value&&process.env.NODE_ENV==='production')throw new Error('SESSION_SECRET is required in production.');return new TextEncoder().encode(value||'development-only-change-this-secret');}
+export async function createDownloadToken(entitlementId:string,userId:string){const entitlement=await prisma.downloadEntitlement.findFirst({where:{id:entitlementId,userId,revokedAt:null,order:{status:'PAID'}}});if(!entitlement)return null;return new SignJWT({entitlementId,userId,version:entitlement.tokenVersion}).setProtectedHeader({alg:'HS256'}).setExpirationTime('10m').sign(secret());}
+export async function verifyDownloadToken(token:string){const result=await jwtVerify(token,secret());return result.payload as {entitlementId?:string;userId?:string;version?:number};}
