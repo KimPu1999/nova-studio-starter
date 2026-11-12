@@ -1,0 +1,45 @@
+name: NOVA Studio CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nova_studio_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d nova_studio_test"
+          --health-interval=10s --health-timeout=5s --health-retries=5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nova_studio_test?schema=public
+      SESSION_SECRET: ci-only-secret-that-is-longer-than-32-characters
+      PUBLIC_WEBSITE_URL: http://localhost:3000
+      ADMIN_EMAIL: ci-admin@example.com
+      ADMIN_PASSWORD: CI-only-1234
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npx prisma validate
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test -- --run
+      - run: npm run build
+      - run: npm audit --audit-level=high

@@ -71,9 +71,10 @@ export async function replySupportTicket(formData: FormData) {
 export async function changeSupportStatus(formData: FormData) {
   await csrfCheck(); const user = await currentUser(); if (!user) throw new Error('');
   const parsed = supportStatusSchema.safeParse({ ticketId:value(formData,'ticketId'), toStatus:value(formData,'toStatus'), reason:value(formData,'reason') }); if (!parsed.success) throw new Error('');
-  const ticket = await prisma.supportTicket.findUnique({ where:{id:parsed.data.ticketId}, select:{id:true,customerId:true,status:true,ticketNumber:true} }); if (!ticket) throw new Error('');
+  const ticket = await prisma.supportTicket.findUnique({ where:{id:parsed.data.ticketId}, select:{id:true,customerId:true,assignedAgentId:true,status:true,ticketNumber:true} }); if (!ticket) throw new Error('');
   const staff = (staffRoles as readonly string[]).includes(user.role.code);
   if (!staff && ticket.customerId !== user.id) throw new Error('');
+  if (staff && user.role.code === RoleCode.SUPPORT_AGENT && ticket.assignedAgentId !== user.id) throw new Error('');
   const customerAllowed = ticket.status === 'RESOLVED' && (parsed.data.toStatus === 'CLOSED' || parsed.data.toStatus === 'OPEN') || ticket.status === 'CLOSED' && parsed.data.toStatus === 'OPEN';
   if (!staff && !customerAllowed) throw new Error('');
   if (!transitions[ticket.status].includes(parsed.data.toStatus)) throw new Error('');
