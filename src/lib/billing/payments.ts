@@ -65,21 +65,32 @@ export async function submitPaymentAttempt(input: SubmitPaymentInput) {
 
   const existing = await prisma.billingPaymentAttempt.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
   if (existing) return existing;
-  const attempt = await prisma.billingPaymentAttempt.create({
-    data: {
-      invoiceId: invoice.id,
-      accountId: invoice.accountId,
-      method: input.method,
-      amountMmk: input.amountMmk,
-      currency: invoice.currency,
-      transactionReference: reference,
-      proofStorageKey,
-      proofMimeType,
-      status: 'PENDING_REVIEW',
-      submittedById: input.user.id,
-      idempotencyKey: input.idempotencyKey,
-    },
-  });
+  let attempt;
+  try {
+    attempt = await prisma.billingPaymentAttempt.create({
+      data: {
+        invoiceId: invoice.id,
+        accountId: invoice.accountId,
+        method: input.method,
+        amountMmk: input.amountMmk,
+        currency: invoice.currency,
+        transactionReference: reference,
+        proofStorageKey,
+        proofMimeType,
+        status: 'PENDING_REVIEW',
+        submittedById: input.user.id,
+        idempotencyKey: input.idempotencyKey,
+      },
+    });
+  } catch (error) {
+    // A previously rejected attempt permanently occupies the (method,
+    // transactionReference) slot by design — surfaces a clear message instead
+    // of an unhandled P2002 so the customer can correct the reference.
+    if ((error as { code?: string }).code === 'P2002') {
+      throw new Error('This transaction reference was already submitted. Enter a different reference or contact support if the payment was wrongly rejected.');
+    }
+    throw error;
+  }
   await billingAudit({ actorId: input.user.id, accountId: invoice.accountId, entityType: 'BillingPaymentAttempt', entityId: attempt.id, action: 'SUBMIT_PAYMENT_REVIEW', after: { invoiceId: invoice.id, amountMmk: input.amountMmk, method: input.method } });
   return attempt;
 }
@@ -130,24 +141,31 @@ export async function reviewPaymentAttempt(input: ReviewPaymentInput) {
     const { fullyPaid } = await applyInvoicePayment(tx, invoice.id, attempt.amountMmk);
     await postInvoiceSettlementLedger(tx, { id: invoice.id, invoiceNumber: invoice.invoiceNumber, accountId: invoice.accountId, amountPaidMmk: invoice.amountPaidMmk + attempt.amountMmk, purpose: invoice.purpose }, attempt.id, attempt.amountMmk, input.reviewer.id);
 
-    // Verified payment -> entitlements, once, inside the same transaction.
-    if (invoice.purpose === 'SUBSCRIPTION' && invoice.subscriptionId) {
-      await activateSubscriptionFromVerifiedPayment(tx, invoice.subscriptionId, invoice, input.reviewer.id);
-    }
-    if (invoice.purpose === 'CREDIT_PACKAGE') {
-      await grantCreditsForVerifiedInvoice(tx as unknown as Prisma.TransactionClient, invoice.id, attempt.account.ownerUserId);
-    }
-    if (invoice.purpose === 'PLAN_CHANGE' && invoice.subscriptionId) {
-      const meta = invoice.metadata as { targetVersionId?: string; targetPriceMmk?: number } | null;
-      const targetVersionId = meta?.targetVersionId ?? null;
-      if (targetVersionId) {
-        const version = await tx.billingPlanVersion.findUnique({ where: { id: targetVersionId } });
-        if (version) {
-          await applyPlanChangeFromVerifiedPayment(tx, invoice.subscriptionId, targetVersionId, meta?.targetPriceMmk ?? version.monthlyPriceMmk, input.reviewer.id);
+    // Financial integrity: entitlements are granted ONLY when the invoice is
+    // fully settled by verified payments. A partial verified payment pays down
+    // the balance and posts the ledger entry, but must never activate a
+    // subscription, grant a full credit package, or apply a plan change — the
+    // outstanding balance has to be verified first. Grants are idempotent per
+    // invoice, so completing the balance later still grants exactly once.
+    if (fullyPaid) {
+      if (invoice.purpose === 'SUBSCRIPTION' && invoice.subscriptionId) {
+        await activateSubscriptionFromVerifiedPayment(tx, invoice.subscriptionId, invoice, input.reviewer.id);
+      }
+      if (invoice.purpose === 'CREDIT_PACKAGE') {
+        await grantCreditsForVerifiedInvoice(tx as unknown as Prisma.TransactionClient, invoice.id, attempt.account.ownerUserId);
+      }
+      if (invoice.purpose === 'PLAN_CHANGE' && invoice.subscriptionId) {
+        const meta = invoice.metadata as { targetVersionId?: string; targetPriceMmk?: number } | null;
+        const targetVersionId = meta?.targetVersionId ?? null;
+        if (targetVersionId) {
+          const version = await tx.billingPlanVersion.findUnique({ where: { id: targetVersionId } });
+          if (version) {
+            await applyPlanChangeFromVerifiedPayment(tx, invoice.subscriptionId, targetVersionId, meta?.targetPriceMmk ?? version.monthlyPriceMmk, input.reviewer.id);
+          }
         }
       }
+      await tx.billingInvoice.update({ where: { id: invoice.id }, data: { paidAt: new Date() } });
     }
-    if (fullyPaid) await tx.billingInvoice.update({ where: { id: invoice.id }, data: { paidAt: new Date() } });
     return tx.billingPaymentAttempt.findUniqueOrThrow({ where: { id: attempt.id } });
   }).then(async (result) => {
     await billingAudit({ actorId: input.reviewer.id, accountId: attempt.accountId, entityType: 'BillingPaymentAttempt', entityId: attempt.id, action: 'APPROVE_PAYMENT', after: { amountMmk: attempt.amountMmk, invoiceId: attempt.invoiceId, note: input.verificationNote } });
@@ -183,9 +201,14 @@ export async function ensurePersonalBillingAccountFor(userId: string) {
 export async function cancelPaymentAttempt(attemptId: string, user: User) {
   const attempt = await prisma.billingPaymentAttempt.findUnique({ where: { id: attemptId } });
   if (!attempt) throw new Error('Payment attempt not found.');
-  if (attempt.status !== 'PENDING_REVIEW') throw new Error('Only pending attempts can be cancelled.');
   if (attempt.submittedById !== user.id) await requireFinanceAdmin();
-  await prisma.billingPaymentAttempt.update({ where: { id: attemptId }, data: { status: 'CANCELLED' } });
+  // Guarded claim: a cancel must never overwrite an APPROVED/REJECTED attempt
+  // that a reviewer is committing concurrently (all-or-nothing transition).
+  const claimed = await prisma.billingPaymentAttempt.updateMany({
+    where: { id: attemptId, status: 'PENDING_REVIEW' },
+    data: { status: 'CANCELLED' },
+  });
+  if (claimed.count !== 1) throw new Error('Only pending attempts can be cancelled.');
   await billingAudit({ actorId: user.id, accountId: attempt.accountId, entityType: 'BillingPaymentAttempt', entityId: attemptId, action: 'CANCEL_PAYMENT_ATTEMPT' });
 }
 

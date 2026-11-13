@@ -47,4 +47,9 @@ jobs:
       - run: npm run lint
       - run: npm test -- --run
       - run: npm run build
+      - name: Verify deployment artifact
+        run: |
+          test -f .next/BUILD_ID || { echo "Missing .next/BUILD_ID — production artifact incomplete"; exit 1; }
+          test -d node_modules/.prisma/client || { echo "Missing generated Prisma client"; exit 1; }
+          echo "Build artifact verified: BUILD_ID=$(cat .next/BUILD_ID)"
       - run: npm audit --audit-level=high

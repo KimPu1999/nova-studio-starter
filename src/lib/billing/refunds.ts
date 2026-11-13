@@ -29,6 +29,15 @@ export function refundableAmountFor(invoice: { totalMmk: number; amountPaidMmk: 
   return Math.max(0, invoice.amountPaidMmk - refundedAlready);
 }
 
+/**
+ * Sum of refund amounts that already reserve or consume the paid balance
+ * (APPROVED reserves at review, ISSUED/COMPLETED consume it). Used for the
+ * cumulative refund cap that prevents over-refunding an invoice.
+ */
+export function committedRefundedTotal(notes: { status: string; amountMmk: number }[]): number {
+  return notes.filter((n) => ['APPROVED', 'ISSUED', 'COMPLETED'].includes(n.status)).reduce((sum, n) => sum + n.amountMmk, 0);
+}
+
 export interface RequestCreditNoteInput {
   invoiceId: string;
   user: User;
@@ -86,14 +95,26 @@ export async function reviewCreditNote(input: ReviewCreditNoteInput) {
   assertNotSelfApproval(input.reviewer.id, creditNote.requestedById, 'this refund request');
   if (creditNote.status !== 'REQUESTED') throw new Error('This credit note has already been reviewed.');
   if (input.decision === 'REJECTED' && !input.reviewNote?.trim()) throw new Error('A rejection note is required.');
-  const claimed = await prisma.billingCreditNote.updateMany({
-    where: { id: creditNote.id, status: 'REQUESTED' },
-    data: { status: input.decision, reviewedById: input.reviewer.id, reviewedAt: new Date(), reviewNote: input.reviewNote, issuedAt: input.decision === 'APPROVED' ? new Date() : null },
+  await prisma.$transaction(async (tx) => {
+    const claimed = await tx.billingCreditNote.updateMany({
+      where: { id: creditNote.id, status: 'REQUESTED' },
+      data: { status: input.decision, reviewedById: input.reviewer.id, reviewedAt: new Date(), reviewNote: input.reviewNote },
+    });
+    if (claimed.count !== 1) throw new Error('Credit note was already reviewed.');
+    if (input.decision === 'APPROVED') {
+      // Re-validate the cumulative refund cap under the claim: concurrent
+      // approvals of two credit notes for the same invoice must not both
+      // reserve more than was actually paid.
+      if (creditNote.invoice) {
+        const siblings = await tx.billingCreditNote.findMany({ where: { invoiceId: creditNote.invoiceId, id: { not: creditNote.id }, status: { in: ['APPROVED', 'ISSUED', 'COMPLETED'] } }, select: { amountMmk: true, status: true } });
+        const eligible = refundableAmountFor(creditNote.invoice, committedRefundedTotal(siblings));
+        if (creditNote.amountMmk > eligible) {
+          throw new Error(`Approval would exceed the refundable balance (${eligible.toLocaleString()} MMK remaining). Reject or void this credit note instead.`);
+        }
+      }
+      await tx.billingCreditNote.update({ where: { id: creditNote.id }, data: { status: 'ISSUED', issuedAt: new Date() } });
+    }
   });
-  if (claimed.count !== 1) throw new Error('Credit note was already reviewed.');
-  if (input.decision === 'APPROVED') {
-    await prisma.billingCreditNote.update({ where: { id: creditNote.id }, data: { status: 'ISSUED' } });
-  }
   await billingAudit({ actorId: input.reviewer.id, accountId: creditNote.accountId, entityType: 'BillingCreditNote', entityId: creditNote.id, action: `REVIEW_${input.decision}`, after: { amountMmk: creditNote.amountMmk, note: input.reviewNote } });
   await billingNotify(creditNote.requestedById, input.decision === 'APPROVED' ? 'BILLING_REFUND_APPROVED' : 'BILLING_REFUND_REJECTED', input.decision === 'APPROVED' ? 'Refund approved' : 'Refund rejected', input.decision === 'APPROVED' ? `Refund of ${creditNote.amountMmk.toLocaleString()} MMK was approved. It completes once the payout is confirmed.` : `Refund rejected: ${input.reviewNote}`, '/billing/invoices');
   return prisma.billingCreditNote.findUniqueOrThrow({ where: { id: creditNote.id } });
@@ -121,6 +142,16 @@ export async function completeCreditNote(input: CompleteCreditNoteInput) {
     throw new Error('Record the payout method and transaction reference before completing the refund.');
   }
   await prisma.$transaction(async (tx) => {
+    // Re-validate the cumulative refund cap under the claim: concurrent
+    // completions of two ISSUED credit notes for the same invoice must never
+    // refund more than the invoice actually received.
+    if (creditNote.invoice) {
+      const completed = await tx.billingCreditNote.findMany({ where: { invoiceId: creditNote.invoiceId, id: { not: creditNote.id }, status: 'COMPLETED' }, select: { amountMmk: true, status: true } });
+      const eligible = refundableAmountFor(creditNote.invoice, committedRefundedTotal(completed));
+      if (creditNote.amountMmk > eligible) {
+        throw new Error(`Completion would exceed the refundable balance (${eligible.toLocaleString()} MMK remaining). Void this credit note instead.`);
+      }
+    }
     const claimed = await tx.billingCreditNote.updateMany({
       where: { id: creditNote.id, status: 'ISSUED' },
       data: { status: 'COMPLETED', payoutMethod: input.payoutMethod, payoutReference: input.payoutReference.trim(), payoutConfirmedAt: new Date(), payoutConfirmedById: input.financeUser.id },

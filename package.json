@@ -15,7 +15,6 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "billing:seed": "tsx prisma/billing-seed.ts",
-    "billing:seed": "tsx prisma/billing-seed.ts",
     "billing:smoke": "tsx scripts/billing-smoke.ts",
     "admin:create": "tsx prisma/create-admin.ts"
   },

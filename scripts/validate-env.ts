@@ -20,6 +20,9 @@ if (production) {
   if (!process.env.PRIVATE_STORAGE_DIR) {
     errors.push('PRIVATE_STORAGE_DIR is required by the current private filesystem adapter.');
   }
+  if (process.env.BILLING_JOBS_TOKEN && process.env.BILLING_JOBS_TOKEN.length < 24) {
+    errors.push('BILLING_JOBS_TOKEN must be at least 24 characters (or unset to disable the billing cron endpoint).');
+  }
 }
 
 if (errors.length > 0) {

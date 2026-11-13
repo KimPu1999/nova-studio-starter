@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth';
-import { createAuthorization } from '@/lib/api/oauth';
+import { createAuthorization, redirectUriAllowed } from '@/lib/api/oauth';
 import { prismaAudit } from '@/lib/api/audit';
 
 export async function grantConsentAction(formData: FormData) {
@@ -16,8 +16,20 @@ export async function grantConsentAction(formData: FormData) {
   const workspaceRaw = String(formData.get('workspaceId') || '');
   const scope = String(formData.get('scope') || '').split(/\s+/).filter(Boolean);
 
+  // Open-redirect guard: every redirect (allow AND deny paths) may only target
+  // a redirect URI that is exactly registered for this client. A forged form
+  // value can never bounce the user (or an error/state payload) elsewhere.
+  let target: URL | null = null;
+  try {
+    const client = await prisma.oAuthClient.findUnique({ where: { clientId }, select: { redirectUris: true } });
+    if (client && redirectUriAllowed(client.redirectUris, redirectUri)) target = new URL(redirectUri);
+  } catch {
+    target = null;
+  }
+
   const build = (params: Record<string, string>) => {
-    const url = new URL(redirectUri);
+    if (!target) redirect('/oauth/authorize?error=invalid_request');
+    const url = new URL(target.toString());
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
     return url.toString();
   };

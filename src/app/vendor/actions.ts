@@ -31,3 +31,22 @@ export async function requestVendorPayout(formData:FormData){
   const account=await prisma.vendorPayoutAccount.findFirst({where:{id:parsed.data.accountId,vendorId:parsed.data.vendorId,isActive:true}}); if(!account)throw new Error('Payout account not found.');
   await prisma.$transaction(async tx=>{const existing=await tx.vendorPayoutRequest.findUnique({where:{idempotencyKey:parsed.data.idempotencyKey}});if(existing)return;const balance=await tx.vendorLedgerEntry.aggregate({where:{vendorId:parsed.data.vendorId},_sum:{amountMmk:true}});if((balance._sum.amountMmk||0)<parsed.data.amountMmk)throw new Error('Insufficient available vendor balance.');const payout=await tx.vendorPayoutRequest.create({data:{vendorId:parsed.data.vendorId,accountId:account.id,amountMmk:parsed.data.amountMmk,idempotencyKey:parsed.data.idempotencyKey}});await tx.vendorLedgerEntry.create({data:{vendorId:parsed.data.vendorId,eventType:'PAYOUT_RESERVATION',amountMmk:-parsed.data.amountMmk,sourceType:'VendorPayoutRequest',sourceId:payout.id,idempotencyKey:`${parsed.data.idempotencyKey}:reservation`}});}); await prisma.auditLog.create({data:{userId:user.id,action:'VENDOR_PAYOUT_REQUESTED',entity:'VendorPayoutRequest',entityId:parsed.data.idempotencyKey,metadata:{vendorId:parsed.data.vendorId,amountMmk:parsed.data.amountMmk}}}); revalidatePath('/vendor/payouts');
 }
+
+/** Cancels a pending payout request and releases the reserved funds. */
+export async function cancelVendorPayout(formData:FormData){
+  const user=await requireUser(); await csrfCheck();
+  const id=text(formData,'id');
+  const payout=await prisma.vendorPayoutRequest.findUnique({where:{id}});
+  if(!payout)throw new Error('Payout request not found.');
+  const access=await requireVendorMember(payout.vendorId);
+  if(!canManageVendorFinance(access.membership.role))throw new Error('Finance permission required.');
+  await prisma.$transaction(async tx=>{
+    const claimed=await tx.vendorPayoutRequest.updateMany({where:{id:payout.id,status:'REQUESTED'},data:{status:'CANCELLED'}});
+    if(claimed.count!==1)throw new Error('Only pending payout requests can be cancelled.');
+    const released=await tx.vendorLedgerEntry.findUnique({where:{eventType_sourceType_sourceId:{eventType:'PAYOUT_RELEASE',sourceType:'VendorPayoutRequest',sourceId:payout.id}}});
+    if(!released)await tx.vendorLedgerEntry.create({data:{vendorId:payout.vendorId,eventType:'PAYOUT_RELEASE',amountMmk:payout.amountMmk,sourceType:'VendorPayoutRequest',sourceId:payout.id,idempotencyKey:`${payout.idempotencyKey}:release`,reason:'Payout cancelled by vendor'}});
+  });
+  await prisma.auditLog.create({data:{userId:user.id,action:'VENDOR_PAYOUT_CANCELLED',entity:'VendorPayoutRequest',entityId:id,metadata:{vendorId:payout.vendorId}}});
+  revalidatePath('/vendor/payouts');
+  revalidatePath('/admin/vendors/payouts');
+}
