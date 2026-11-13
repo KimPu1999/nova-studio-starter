@@ -1,59 +1,39 @@
-# NOVA Studio — AI Credit Purchases
+# AI Credits (Phase 18)
 
-## Reuses the Phase 13 wallet — no parallel balances
+Phase 18 **reuses** the Phase 13 AI credit infrastructure — there are no
+parallel balances:
 
-Credit packages purchase into the existing `AiCreditWallet` /
-`AiCreditLedger` (Phase 13). Billing does **not** create a second balance
-system; `/billing/credits` reads the same wallet the AI builder consumes from.
-
-## Catalog
-
-`BillingCreditPackage` rows (seeded idempotently by `prisma/billing-seed.ts`):
-
-| Code | Credits | Bonus | Price |
-| --- | --- | --- | --- |
-| CREDITS_1K | 1,000 | 0 | 5,000 MMK |
-| CREDITS_5K | 5,000 | 500 | 25,000 MMK |
-| CREDITS_20K | 20,000 | 4,000 | 90,000 MMK |
-
-Admins manage packages as data; nothing is hardcoded in business logic.
+- Wallet: `AiCreditWallet` (`balance`, `reserved`).
+- Ledger: `AiCreditLedger` (append-only, unique `idempotencyKey`).
+- Spend path: `reserveCredits` / `settleReservedCredits` /
+  `releaseReservedCredits` from `src/lib/ai/credits.ts` (unchanged).
 
 ## Purchase flow
 
-`purchaseCreditPackage(user, packageId, idempotencyKey)`:
+1. Catalog: `BillingCreditPackage` (seeded: 1K/5K(+500)/20K(+4K) credits).
+2. `purchaseCreditPackage(user, packageId, idempotencyKey)` — creates an
+   ISSUED `CREDIT_PACKAGE` invoice; credits count is stored in invoice
+   `metadata` and the line description. Customer pays manually.
+3. On finance verification, `grantCreditsForVerifiedInvoice(tx, invoiceId, …)`
+   runs **inside the approval transaction**:
+   - idempotency key `billing:credits:{invoiceId}` (replay-safe),
+   - writes one `CREDIT_PURCHASE` ledger entry (positive),
+   - increments `AiCreditWallet.balance`.
+4. History surfaces verified grants at `/billing/credits`
+   (`getCreditPurchaseHistory`) and consumption at `/billing/usage`.
 
-1. Validates the package is active and its price/credits are integer MMK.
-2. Resolves (or creates) the user's personal `BillingAccount`.
-3. Creates a `CREDIT_PACKAGE`-purpose invoice with an `AI_CREDITS` line and
-   issues it (immutable snapshot). Metadata stores `credits` (total incl.
-   bonus) and `packageId` for the grant step.
+## Refunds & reversals
 
-Payment is manual (see payments.md). **Credits appear only after finance
-verification**: `grantCreditsForVerifiedInvoice()` runs inside the approval
-transaction and:
+`completeCreditNote` for a `CREDIT_PACKAGE` invoice reverses credits with a
+`CREDIT_REFUND` ledger entry, capped at the **current wallet balance** so the
+balance can never go negative; the reversed amount is recorded on the credit
+note (`creditsReversed`).
 
-- is idempotent by the `AiCreditLedger.idempotencyKey`
-  `billing:credits:{invoiceId}` — a replay cannot double-grant;
-- upserts the user's Phase 13 wallet and appends a `CREDIT_PURCHASE` ledger
-  entry before incrementing the balance (atomic, no negative balances).
+## Plan allowances
 
-## Usage history
-
-- `/billing/credits` — wallet balance (live) + purchase/grant/refund ledger
-  entries (`CREDIT_PURCHASE`, `CREDIT_GRANT`, `CREDIT_REFUND`).
-- `/billing/usage` — consumption entries (`CREDIT_RESERVATION`,
-  `CREDIT_CONSUMPTION`, `CREDIT_RELEASE`).
-
-## Refunds and reversals
-
-Refunding a credit-package invoice reverses credits **without pushing the
-wallet negative**: the reversal is capped at `min(granted, current balance)`
-(`creditsReversed` records the actual amount). Purchases reserved/atomically
-settled by Phase 13 flows are untouched by billing.
-
-## Double-spend protection
-
-Credit consumption continues to be governed by the Phase 13
-reservation → settlement flow (`CREDIT_RESERVATION`/`CREDIT_CONSUMPTION`
-ledger entries). Billing adds no bypass and does not write consumption
-entries itself.
+`monthlyAiCredits` from the subscription's plan version is surfaced as the
+`ai.credits.monthly` entitlement and shown on `/billing/usage` against the
+period's `AI_CREDITS` meter (metered from `AiUsageRecord.creditsConsumed` —
+no fabricated usage). Quota breaches do **not** auto-bill; they block further
+included-quota features per the entitlement guard and surface as an upgrade
+signal.

@@ -1,71 +1,73 @@
-# NOVA Studio — Billing Security Controls
+# Billing Security Controls (Phase 18)
 
-## Authorization model
+## Roles & least privilege
 
-| Role | Capabilities |
+| Role | Billing access |
 | --- | --- |
-| `SUPER_ADMIN` | Everything (full finance + platform) |
-| `FINANCE_ADMIN` | Payment verification, refund review/completion, reconciliation, ledger, reports, billing sweep |
-| `ADMIN` (platform) | Plan catalog, subscription admin actions, invoice issue/void; read access to billing pages |
-| Customer | Own/organization billing pages only, via billing-account ownership |
+| `SUPER_ADMIN` | Everything |
+| `FINANCE_ADMIN` | Payment verification, refund review/completion, reconciliation, reports, sweep (enforced by `requireFinanceAdmin`) |
+| `ADMIN` (platform) | Plan catalog, subscription management, invoice issuance/void (`requireBillingPlatformAdmin`) |
+| `EDITOR` / `SUPPORT_AGENT` / `CUSTOMER` | No billing admin access |
+| Customer | Only own billing data via `requireUser` + `requireBillingAccountAccess` |
 
-Enforcement is server-side in `src/lib/billing/rbac.ts`:
-
-- `requireBillingViewer()` — least-privilege read for billing pages.
-- `requireBillingPlatformAdmin()` — catalog/subscription/invoice mutations.
-- `requireFinanceAdmin()` — all money-moving decisions.
-- `assertNotSelfApproval()` — separation of duties on payment reviews, refund
-  reviews, and refund payouts.
-
-`requireAdmin()` (Phase 16 security layer) gates every admin page; all server
-actions run `csrfCheck()` (origin validation) first.
+The `FINANCE_ADMIN` role was added to `RoleCode` (additive; seeded via
+`npm run billing:seed`).
 
 ## Tenant isolation
 
-- `requireBillingAccountAccess(accountId, user)`: personal accounts are
-  accessible only by their owner; organization accounts only by members of the
-  owning organization's workspaces holding `billing.read`/`billing.manage`
-  (Phase 15 permission matrix). Every customer billing page, payment
-  submission, settings update, and refund request funnels through it.
-- Duplicate-active billing accounts are impossible (`billingKey` unique:
-  `USER:{id}` / `ORG:{id}`), so tenant keys cannot be spoofed by creating a
-  parallel account.
-- Invoice/subscription/payment/ledger queries are always scoped by
-  `accountId` resolved through the access check — never by client-supplied IDs
-  alone.
+- Billing accounts: `billingKey` unique (`USER:{id}` / `ORG:{id}`) prevents
+  duplicate accounts; organization accounts are only reachable by members
+  holding workspace `billing.read` / `billing.manage` permissions (Phase 15
+  permission model).
+- Customer pages resolve invoices/attempts/credit notes strictly through
+  account membership; admin pages run behind role gates. No client-supplied
+  IDs are trusted without an ownership check.
 
-## Financial integrity controls
+## Financial invariants (defense in depth)
 
-- Integer-MMK invariant asserted at every entry point (`assertIntMmk`).
-- Unique idempotency constraints on invoices, payment attempts, ledger
-  postings, credit grants, usage events, subscriptions (scope slot) — verified
-  by `tests/billing-integration.test.ts` against the real database.
-- Payment-reference uniqueness per method prevents one wallet transaction from
-  paying two invoices.
-- Invoice immutability after issue; ledger append-only; audit log append-only.
-- Entitlements derived only from verified subscription state; 60s in-process
-  cache invalidated on every sync (no stale escalation).
-- Payment proofs are private files, readable only via the finance-only proof
-  route (`SUPER_ADMIN`/`FINANCE_ADMIN`).
+1. **No entitlement without verified payment** — activation/grant/plan-change
+   happen only inside the approval transaction.
+2. **Screenshots ≠ proof** — mandatory reviewer `verificationNote`; proofs
+   served only to finance via a no-store route.
+3. **Separation of duties** — `assertNotSelfApproval` blocks self-review of
+   payments and refunds.
+4. **Idempotency everywhere** — submissions, invoices, renewals, grants,
+   ledger postings, sweeps all keyed; unique constraints are the backstop.
+5. **Concurrent-safety** — conditional `updateMany` claims (payment review,
+   invoice payment, refund review/completion) so races cannot double-apply.
+6. **Seat race protection** — `assertSeatAvailable` inside the invitation
+   transaction.
+7. **Reference dedupe** — `@@unique([method, transactionReference])`.
+8. **Append-only** — ledger and credit-ledger entries are never mutated.
+9. **Overpayment guard** — payments can never exceed invoice outstanding.
+10. **Refund guard** — refunds can never exceed paid-minus-refunded.
 
-## Test coverage (see tests/)
+## Auditing
 
-- `tests/billing.test.ts` — 25 unit tests: totals math, transitions, refund
-  eligibility, reference normalization, statement parsing, quotas, separation
-  of duties, payable statuses, period math.
-- `tests/billing-integration.test.ts` — 4 database tests (rollback
-  transactions): duplicate payment reference rejection, duplicate ledger key
-  rejection + payment application/overpayment guards, idempotent usage
-  ingestion, transactional seat-limit enforcement.
-- Existing suites (`api-v1`, `workspaces`, `security`, `webhooks`, …)
-  confirm marketplace/AI/hosting/LMS/developer surfaces remain functional.
+`BillingAuditLog` records: account changes, invoice issue/void, subscription
+create/activate/plan-change/cancel/expire/suspend, payment submit/approve/
+reject, credit-note request/review/complete, reconciliation create/resolve/
+close, sweep runs. Actions are best-effort writes that never block a
+financial transaction (documented trade-off).
 
-## Production limitations
+## Testing coverage (Phase 18)
 
-- No PSP/webhook integration: verification is human, with audit + separation
-  of duties; the fraud surface is the finance queue, mitigated by mandatory
-  verification notes and reconciliation.
-- Session-based auth uses the existing Phase 16 security stack; billing adds no
-  new credential types.
-- Entitlement cache is per-process (single-instance friendly). For multi-region
-  deployments, replace with a shared store + the same invalidation hooks.
+`tests/billing.test.ts` (26 tests, all passing) covers: the subscription
+state machine (including *no activation without payment* and *no silent
+auto-renew*), invoice total computation and rejection of bad money values,
+refund-eligibility math, quota guard, UTC periods, MRR normalization, scope
+keys, statement CSV parsing/validation, reference normalization, and the
+admin line parser. Transaction-race scenarios (concurrent verification,
+double-grant) are enforced by DB-level unique constraints + conditional
+claims; exercising them requires a test database harness (see Remaining
+Issues in the Phase 18 report).
+
+## Known limitations (stated honestly)
+
+- No 2FA-gated finance approval, no IP-allowlisting for finance roles.
+- Audit log is best-effort (non-transactional) — acceptable for alerting/
+  forensics, not a compliance-grade WORM store.
+- Proofs are stored on local disk via `PRIVATE_STORAGE_DIR`; production
+  should move to object storage with signed URLs.
+- No rate limiting specific to billing endpoints beyond the global API
+  pipeline; payment submission is CSRF-checked and idempotent.

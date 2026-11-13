@@ -1,61 +1,51 @@
-# NOVA Studio — Usage Metering & Quotas
+# Usage Metering & Quotas (Phase 18)
 
-## Source of truth
+## Meters
 
-Phase 12–17 usage records remain the source of truth:
-`AiUsageRecord` (tokens + credits), `ApiUsageEvent`, `HostingUsageRecord`,
-`WebsiteDeployment`. Phase 18 meters them into billing tables — it never
-replaces or fabricates provider usage.
+| Code | Unit | Source of truth (existing) |
+| --- | --- | --- |
+| `AI_TOKENS` | tokens | `AiUsageRecord.inputTokens + outputTokens` |
+| `AI_CREDITS` | credits | `AiUsageRecord.creditsConsumed` |
+| `API_REQUESTS` | requests | `ApiUsageEvent` (non-rate-limited) |
+| `HOSTING_STORAGE_MB` | MB | `HostingUsageRecord.storageMb` |
+| `HOSTING_BANDWIDTH_MB` | MB | `HostingUsageRecord.bandwidthMb` |
+| `DEPLOYMENTS` | deployments | `WebsiteDeployment` (READY/PUBLISHED) |
 
-## Meters (`BillingUsageMeter`)
-
-`AI_TOKENS`, `AI_CREDITS`, `API_REQUESTS`, `HOSTING_STORAGE_MB`,
-`HOSTING_BANDWIDTH_MB`, `DEPLOYMENTS` (seeded idempotently).
+Existing records remain the source of truth. `syncExistingUsageRecords()`
+backfills them into `BillingUsageEvent` rows keyed by
+`sourceEventId = {source}:{recordId}` — re-running never double-counts.
 
 ## Idempotent ingestion
 
-`ingestUsageEvent()`:
+`ingestUsageEvent({meterCode, sourceEventId, subjectType, subjectId, quantity,
+quality, occurredAt})`:
 
-- Records `BillingUsageEvent` with `@@unique([meterId, sourceEventId])` —
-  the source record id (e.g. `ai-usage:{recordId}`) is the dedup key, so the
-  same event can never be counted twice, even across retries or concurrent
-  syncs.
-- Upserts the monthly `BillingUsageAggregate` (UTC month period,
-  `[periodStart, periodEnd)`) in the same transaction.
-- Distinguishes `ESTIMATED` vs `VERIFIED` quality (`isEstimated` on the
-  aggregate) — estimated usage is flagged, never silently billed.
-
-Replays return `false` (no double-count). `syncExistingUsageRecords()` backfills
-meters from historical records idempotently (source ids are stable).
+- Uniqueness: `@@unique([meterId, sourceEventId])` — replay returns `false`
+  without touching aggregates.
+- Aggregates: `BillingUsageAggregate` upserted per
+  (meter, subject, UTC month period) with atomic increments.
+- `quality`: `ESTIMATED` vs `VERIFIED` distinguishes provider-estimated usage
+  from verified records; nothing is fabricated.
 
 ## Quotas
 
-Limits come from entitlements (`resolveEntitlements`) — i.e. from the verified
-subscription state — never re-derived inline:
+- Limits come exclusively from entitlements (`resolveEntitlements`) derived
+  from the **verified subscription** state.
+- `checkUsageQuota(...)` returns `{allowed, limit, current, overage}`.
+- **No surprise overage billing**: overage never creates charges; it blocks
+  the guarded action and/or surfaces an upgrade prompt.
+- The Phase 17 API pipeline (`src/lib/api-v1.ts`) now resolves its monthly
+  workspace limit as: billing entitlement `api.requests.monthly` →
+  `ApiQuotaPolicy` → platform default — server-side only, no bypass path from
+  the client.
 
-| Meter | Entitlement |
-| --- | --- |
-| API_REQUESTS | `api.requests.monthly` |
-| AI_CREDITS | `ai.credits.monthly` |
-| HOSTING_STORAGE_MB / BANDWIDTH_MB | `storage.mb` / `bandwidth.mb` |
-| DEPLOYMENTS | `websites.max` |
+## Hosting & API integration notes
 
-`assertWithinQuota(limit, current, requested)` is a pure server-side guard;
-`null` limits mean unlimited. Enforcement points (Phase 14 hosting services,
-Phase 17 API quota path) check quotas server-side before consuming; the API
-path prefers the billing entitlement over the legacy `ApiQuotaPolicy`.
-
-## Overage policy
-
-Overage **never triggers automatic billing** — no surprise charges. Excess
-consumption either (a) blocks the operation when a hard quota is configured, or
-(b) is allowed and surfaced to admins/reports as a soft overage signal for an
-upgrade conversation. There is no per-unit overage invoicing in this phase.
-
-## Integration notes
-
-- Hosting/storage/bandwidth continue to be measured by Phase 14 services;
-  billing meters consume those records — the two systems stay consistent by
-  construction (single source, idempotent fan-out).
-- The `/billing/usage` dashboard shows the customer's period usage, quota bars,
-  and estimated/verified flags (UTC months, Yangon display).
+- Hosting quotas (`websitesLimit`, `customDomainsLimit`, `storageMb`,
+  `bandwidthMb`) are exposed via entitlements for Phase 14 services to enforce
+  server-side. Downgrades **disable** entitlement flags but never delete
+  websites, domains, or deployments (documented non-destructive policy).
+- `assertSeatAvailable` (seat guard) is wired into the workspace invitation
+  action inside the invitation transaction, so concurrent invitations cannot
+  bypass seat limits. Invited + pending invitations both consume seats
+  (documented policy). Overage seats are never auto-charged.

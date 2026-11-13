@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // Pin the workspace root: a stray package-lock.json in ~/ would otherwise be
+  // picked as root, which breaks file tracing and can destabilize the dev cache.
+  outputFileTracingRoot: import.meta.dirname,
   async headers() {
     return [{
       source: '/(.*)',

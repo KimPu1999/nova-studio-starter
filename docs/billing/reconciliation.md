@@ -1,58 +1,67 @@
-# NOVA Studio — Financial Reconciliation
+# Financial Reconciliation & Revenue Reporting (Phase 18)
 
-## Purpose
+## Financial ledger recap
 
-Reconciliation compares a (optionally imported) bank/wallet statement period
-against verified payment attempts and ledger postings, so finance can prove
-that every recorded payment is backed by real money — and that real money has
-a matching record.
+`BillingLedgerEntry` is append-only; postings are idempotent
+(`idempotencyKey` unique). `CASH_RECEIPT` (CREDIT) is posted only inside a
+verified payment approval; subscription invoices additionally post
+`DEFERRED_REVENUE` (CREDIT), releasable to `REVENUE_RECOGNIZED`;
+`REFUND` (DEBIT) posts only when a payout is confirmed.
 
-## What a run does (`createReconciliationRun()`)
+Accounting assumptions (documented, not hidden):
 
-For all `APPROVED` payment attempts reviewed inside `[periodStart, periodEnd)`:
+- Management-reporting ledger, not a double-entry GL. No journals, contra
+  accounts, or fiscal close. No tax compliance is claimed.
+- Vendor commissions stay in the Phase 12 vendor ledger and are reported as
+  **liabilities**, never as platform revenue.
+- Marketplace (Phases 4–5) and LMS (Phase 7) money still lives in their own
+  flows and is **excluded** from Phase 18 billing reports; the reports UI
+  states this limitation.
 
-1. **Payment matching** — attempts are matched to imported statement rows by
-   normalized reference + exact integer-MMK amount (one statement row is
-   consumed once).
-2. **Duplicate reference detection** — the same reference used by more than one
-   attempt (or appearing twice in a statement) is flagged
-   `INVESTIGATING / DUPLICATE_REFERENCE`.
-3. **Missing statement rows** — verified payments with no matching statement
-   row are `UNMATCHED` (money may not have actually arrived).
-4. **Missing ledger postings** — verified payments without a corresponding
-   `BillingLedgerEntry` are `INVESTIGATING` (data-integrity issue).
-5. **Orphan statement rows** — statement money with no verified submission is
-   `UNMATCHED` (never auto-matched to an invoice).
+## Revenue reporting (`/admin/billing/reports`)
 
-## Hard rules
+`buildRevenueReport(from, to)` over `[from, to)` UTC:
 
-- **Nothing is auto-approved.** Unmatched items remain `UNMATCHED` until a
-  finance user sets `MATCHED` / `INVESTIGATING` / `RESOLVED` — a human decision,
-  recorded with reviewer + timestamp.
-- **No fabricated bank confirmations.** Statement data comes only from the
-  finance-imported CSV or manual review.
-- **Statements stay private.** CSVs are stored via private storage; only
-  references/amounts/dates are parsed and stored on items.
-- **Validated imports.** `parseStatementCsv` (Zod) accepts
-  `reference,amount[,date]` rows, rejects malformed lines, comments (`#`),
-  non-integer/non-positive amounts.
-- **Immutable history.** Reports are never deleted; closing records who closed
-  and how many items were unresolved.
+| Metric | Method |
+| --- | --- |
+| Verified cash receipts | Σ `CASH_RECEIPT` (CREDIT) in window |
+| Refunds | Σ `REFUND`/`CREDIT_*` (DEBIT) in window |
+| Net receipts | receipts − refunds |
+| Revenue by category | cash receipts grouped by invoice purpose (`SUBSCRIPTION`, `CREDIT_PACKAGE`, `PLAN_CHANGE`, …) |
+| Active subscriptions / MRR | count + Σ `monthlyNormalizedMmk(priceMmk, cycle)` (annual ÷ 12) over `ACTIVE` subs at query time; `ARR = MRR × 12` |
+| Outstanding | Σ (`totalMmk − amountPaidMmk`) over `ISSUED`/`PARTIALLY_PAID`/`OVERDUE` |
+| Vendor liabilities | Σ vendor `netMmk` earned-and-available − Σ paid-out payouts (from Phase 12 tables, kept OUT of platform revenue) |
 
-## Procedure (finance)
+Unverified payments are excluded by construction (they never reach the
+ledger). All timestamps UTC; the UI notes Asia/Yangon display conversion.
 
-1. Export the KBZPay/WavePay/bank statement for the period.
-2. `/admin/billing/reconciliation` → create a run with the UTC period, optional
-   statement name/CSV/total.
-3. Review items: verify `UNMATCHED` payments against the wallet/bank; resolve
-   or investigate each one.
-4. Close the run with notes when the period is clean.
+## Reconciliation (`/admin/billing/reconciliation`)
 
-Run summaries (matched/unmatched counts + amounts) are surfaced on the page;
-unresolved items block a clean close and are visible in the run header.
+1. **Create a run** — pick a UTC period; optionally paste a statement CSV
+   (`reference,amount,date` per line; `#` comments). The raw statement is
+   stored privately and validated with Zod; **no bank confirmations are
+   fabricated** — only what a finance user imports is analyzed.
+2. Deterministic matching:
+   - Approved payment attempts ↔ statement rows by (reference, amount);
+   - Duplicate detection: the same reference used more than once (attempt or
+     statement) → `INVESTIGATING` with `DUPLICATE_REFERENCE`;
+   - Verified payments with no statement row → `UNMATCHED` (cash possibly
+     received without a submission, or the statement is incomplete);
+   - Statement rows with no verified payment → `UNMATCHED`;
+   - Approved attempts missing ledger postings → `INVESTIGATING`
+     (data-integrity check).
+3. **Human resolution only.** Items move `UNMATCHED → MATCHED / INVESTIGATING
+   / RESOLVED` via explicit finance actions; **nothing is ever
+   auto-approved**. Closing a run with unresolved items is allowed but the
+   count is recorded in the closure note.
+4. Every run, item resolution, and closure is audited
+   (`BillingAuditLog`) with the acting finance user.
 
-## Relation to reports
+## Procedure (monthly close, recommended)
 
-Unmatched verified payments remain counted as cash in reports (they were
-verified) but are flagged here for follow-up; pending (unverified) submissions
-are excluded from both. Closing a run never mutates invoices or ledger entries.
+1. Export the wallet/bank statement for the UTC month.
+2. Import it into a new reconciliation run.
+3. Resolve `UNMATCHED`/`INVESTIGATING` items (refund double-pays, chase
+   missing submissions, fix statement errors).
+4. Cross-check `/admin/billing/reports` (receipts vs refunds vs outstanding).
+5. Close the run; review `/admin/billing/audit` for the month's actions.

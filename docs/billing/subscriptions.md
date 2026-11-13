@@ -1,82 +1,73 @@
-# NOVA Studio — Subscription Lifecycle
+# Subscription Lifecycle (Phase 18)
 
 ## States
 
-`INCOMPLETE → PENDING_PAYMENT → ACTIVE → PAST_DUE → GRACE_PERIOD →
-SUSPENDED → (reactivation) ACTIVE`, with terminal `CANCELLED` / `EXPIRED`.
+```
+INCOMPLETE ──▶ PENDING_PAYMENT ──▶ ACTIVE ──▶ PAST_DUE ──▶ GRACE_PERIOD
+                                   │  ▲          │             │
+                                   │  └──────────┴──(late verified payment)
+                                   ▼                             ▼
+                              CANCELLED                    SUSPENDED ──(verified)──▶ ACTIVE
+                              EXPIRED ◀──(period end w/ cancelAtPeriodEnd)──┘
+```
 
-Valid transitions are declared in `SUBSCRIPTION_TRANSITIONS`
-(`src/lib/billing/constants.ts`) and enforced by `assertTransition()`.
-Terminal states have no outgoing transitions; a cancelled/expired subscription
-can never be silently reactivated — a new subscription must be created.
-
-## Scopes
-
-`BillingScopeType`: `PERSONAL` (a user), `WORKSPACE` (an organization's
-workspace), `WEBSITE` (a hosted site). Each scope holds at most one
-non-terminal subscription: the `slotKey` unique column (`SLOT:USER:{id}`,
-`SLOT:WS:{id}`, `SITE:{id}`) reserves the scope while any of
-`INCOMPLETE/PENDING_PAYMENT/ACTIVE/PAST_DUE/GRACE_PERIOD/SUSPENDED` holds it,
-and is released on cancel/expire — duplicate active subscriptions for the same
-scope are impossible, even under concurrency.
+Valid transitions are enforced by `assertTransition` (`SUBSCRIPTION_TRANSITIONS`
+in `src/lib/billing/constants.ts`). `CANCELLED` and `EXPIRED` are terminal; a
+new subscription must be created instead.
 
 ## Creation
 
-`startSubscription()`:
+- `startSubscription({accountId, scopeType, scopeId, planId, cycle})` →
+  `PENDING_PAYMENT` subscription + first invoice (paid plans) or immediate
+  `ACTIVE` (free plans, no payment required).
+- **One non-terminal subscription per scope.** The `slotKey` unique constraint
+  (`SLOT:USER:x` / `SLOT:WS:x` / `SLOT:SITE:x`) reserves the scope; it is
+  released (set to `null`) on cancel/expire, so concurrent creates cannot
+  produce duplicate active subscriptions.
 
-1. Resolves the ACTIVE plan version and integer price for the chosen cycle.
-2. Creates a `PENDING_PAYMENT` subscription + `PLAN_BASE` item (idempotent:
-   same scope always resolves to the same subscription).
-3. Creates the first invoice (idempotency key
-   `invoice:initial:{subscriptionId}:{periodStart}`) and issues it.
+## Activation (manual-verification flow)
 
-**Free plans** skip payment entirely and are activated immediately
-(`priceMmk === 0`); their periods advance idempotently via
-`advanceFreeSubscriptions()`.
+`reviewPaymentAttempt(APPROVED)` runs **one transaction**:
+1. Claims the attempt (`PENDING_REVIEW → APPROVED`, conditional update —
+   concurrent reviews cannot both win).
+2. Applies the payment to the invoice (overpayment-guarded).
+3. Posts ledger entries (cash receipt + deferred revenue).
+4. Activates/renews the subscription: `status=ACTIVE`, advances
+   `currentPeriodStart/End`, sets `renewsAt`, records `lastRenewalKey`.
+5. Syncs entitlements and (for credit packages) grants credits.
 
-## Activation / renewal — only from VERIFIED payments
+Renewals are idempotent: the renewal invoice idempotency key is
+`renewal:{subscriptionId}:{periodStart-ISO-date}` and the subscription's
+`lastRenewalKey` prevents double application. **Unpaid renewals are never
+marked as paid** — the subscription stays in `GRACE_PERIOD`/`PAST_DUE` until a
+verified payment arrives.
 
-`activateSubscriptionFromVerifiedPayment(tx, …)` runs **inside the finance
-reviewer's approval transaction** (see payments.md). It:
+## Grace & suspension
 
-1. Validates the state transition.
-2. Syncs entitlements to ACTIVE and invalidates the entitlement cache.
-3. Sets the period window and `lastRenewalKey` = the invoice idempotency key,
-   making replays no-ops (renewal processing is idempotent).
+- When a period lapses unpaid, `runSubscriptionLifecycleSweep` moves the
+  subscription to `GRACE_PERIOD` with `graceUntil = now + 7 days`
+  (`GRACE_PERIOD_DAYS`). Entitlements stay *enabled* during grace.
+- After grace lapses: `SUSPENDED` — entitlements are **disabled** (soft flag,
+  non-destructive; customer data is never deleted).
+- Reactivation = paying the outstanding invoice; verification sets `ACTIVE`
+  and re-enables entitlements (documented reactivation behavior).
+- `cancelAtPeriodEnd` → `EXPIRED` at period end; entitlements disabled.
 
-Unpaid renewal invoices are **never** marked paid, and manual-payment
-subscriptions are never auto-renewed as paid — the sweep only generates
-invoices and lifecycle states.
+## Background jobs (no scheduler in this starter — honest limitation)
 
-## Plan changes
+`runBillingSweep` (`src/lib/billing/jobs.ts`) is fully idempotent and performs:
+renewal invoice generation (12-day lookahead), overdue marking, lifecycle
+sweep, free-plan period advance, and usage backfill. Trigger it via:
 
-`requestPlanChange()` (ACTIVE/PAST_DUE/GRACE_PERIOD only):
+- Admin UI button on `/admin/billing` (finance admin), or
+- Any external cron hitting an authorized surface (e.g. wrapping
+  `runBillingSweep` behind `BILLING_JOBS_TOKEN`-guarded auth — left to
+  deployment; recommended: GitHub Actions cron calling the admin action
+  endpoint or a small protected route).
 
-- Computes a prorated delta on monthly-normalized prices for the remainder of
-  the period; downgrades create a zero-amount adjustment invoice (no automatic
-  refund) and are otherwise handled via credit notes.
-- Creates a `PLAN_CHANGE` invoice whose metadata pins
-  `targetVersionId/targetPriceMmk`. Entitlements keep the **current** plan
-  until the invoice is verified; the verifier then applies the swap
-  (`applyPlanChangeFromVerifiedPayment`). Historical invoices keep their
-  original version.
+Duplicate runs are safe: renewal invoices and sweeps are keyed idempotently.
 
-## Cancellation, grace, suspension, reactivation
+## Timezones
 
-- `cancelSubscription(immediate=false)` sets `cancelAtPeriodEnd`; the sweep
-  expires it at period end (entitlements disabled, data preserved, `slotKey`
-  released). `immediate=true` cancels now.
-- Lifecycle sweep (`runSubscriptionLifecycleSweep`): ACTIVE with an ended
-  period → `GRACE_PERIOD` (default 7 days, `GRACE_PERIOD_DAYS`) with
-  notifications; grace lapse → `SUSPENDED` (entitlements disabled, data
-  preserved — nothing is deleted).
-- Reactivation: paying the outstanding renewal invoice while suspended moves
-  the subscription back to ACTIVE via the verified-payment path
-  (`SUSPENDED → ACTIVE` is a legal transition). The reactivation behavior is
-  documented here: no new subscription is required; entitlements re-enable on
-  the same verified transaction.
-
-## History
-
-Subscriptions are never deleted; rows keep full period/audit history, and every
-transition writes `BillingAuditLog` + customer notifications.
+All storage/comparison is UTC. Display may render Asia/Yangon (+06:30) but
+renewal windows, grace deadlines and reporting periods are UTC-month based.

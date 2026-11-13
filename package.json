@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "pkill -9 -f 'next[ ]dev' 2>/dev/null; pkill -9 -f 'next[-]server' 2>/dev/null; pkill -9 -f 'next[-]router-worker' 2>/dev/null; pkill -9 -f 'next[-]render-worker' 2>/dev/null; sleep 2; rm -rf .next/cache/webpack; next dev",
     "build": "next build",
     "start": "NODE_ENV=production npm run validate:env && next start",
     "lint": "eslint .",
@@ -14,6 +14,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
+    "billing:seed": "tsx prisma/billing-seed.ts",
     "billing:seed": "tsx prisma/billing-seed.ts",
     "billing:smoke": "tsx scripts/billing-smoke.ts",
     "admin:create": "tsx prisma/create-admin.ts"
