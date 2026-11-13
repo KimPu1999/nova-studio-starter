@@ -10,6 +10,7 @@
  *   concurrent payment approvals.
  */
 import { prisma } from '@/lib/prisma';
+import { randomInt } from 'crypto';
 import { assertIntMmk, PAYABLE_INVOICE_STATUSES } from './constants';
 import { billingAudit, billingNotify } from './audit';
 import { postLedgerEntry } from './ledger';
@@ -33,7 +34,7 @@ export function composeInvoiceNumber(prefix: string, date: Date, token: string):
 
 export function composeToken(idempotencyKey: string): string {
   const raw = idempotencyKey.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-  return (raw.length >= 6 ? raw.slice(-6) : raw.padEnd(6, '0')) + Math.floor(Math.random() * 10).toString();
+  return (raw.length >= 6 ? raw.slice(-6) : raw.padEnd(6, '0')) + randomInt(0, 10).toString();
 }
 
 /** Validates line inputs and computes integer totals. */

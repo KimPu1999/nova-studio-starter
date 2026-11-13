@@ -1,32 +1,32 @@
 import '../admin/admin.css';
 import '../admin/responsive.css';
 import './billing.css';
+import './billing-overrides.css';
 import Link from 'next/link';
-import {CreditCard,FileText,Gauge,LayoutDashboard,LogOut,PackageOpen,Settings,Sparkles,Wallet} from 'lucide-react';
+import {LogOut} from 'lucide-react';
 import {requireUser} from '@/lib/auth';
 import {customerLogoutAction} from '../customer-actions';
 import {setBillingLanguageAction} from './actions';
 import {getBillingLang} from '@/lib/billing/i18n';
+import {BillingNav} from './nav';
 export const dynamic='force-dynamic';
 export default async function BillingLayout({children}:{children:React.ReactNode}){
   const user=await requireUser();
   const lang=await getBillingLang();
   const nav=[
-    ['/billing','overview',LayoutDashboard],
-    ['/billing/plans','plans',PackageOpen],
-    ['/billing/subscription','subscription',CreditCard],
-    ['/billing/invoices','invoices',FileText],
-    ['/billing/payments','payments',Wallet],
-    ['/billing/usage','usage',Gauge],
-    ['/billing/credits','credits',Sparkles],
-    ['/billing/settings','settings',Settings],
+    ['/billing','overview'],
+    ['/billing/plans','plans'],
+    ['/billing/subscription','subscription'],
+    ['/billing/invoices','invoices'],
+    ['/billing/payments','payments'],
+    ['/billing/usage','usage'],
+    ['/billing/credits','credits'],
+    ['/billing/settings','settings'],
   ] as const;
   return <div className="admin-shell">
     <aside className="admin-sidebar">
       <Link href="/account/dashboard" className="brand-mark"><span className="brand-symbol">✳</span> NOVA<span className="text-violet-400">.</span></Link>
-      <nav className="mt-12 space-y-2">
-        {nav.map(([href,key,Icon])=><Link href={href} key={href}><Icon size={17}/>{lang==='mm'?({overview:'ခြုံငံချုပ်',plans:'အစီအစဉ်များ',subscription:'စာရင်းသွင်းမှု',invoices:'ငွေစာရင်း',payments:'ငွေပေးချေမှု',usage:'အသုံးပြုမှု',credits:'AI ကရေဒစ်',settings:'ဆက်တင်များ'} as Record<string,string>)[key]:({overview:'Overview',plans:'Plans',subscription:'Subscription',invoices:'Invoices',payments:'Payments',usage:'Usage',credits:'AI Credits',settings:'Settings'} as Record<string,string>)[key]}</Link>)}
-      </nav>
+      <BillingNav items={nav} lang={lang}/>
       <div className="mt-auto space-y-3">
         <form action={setBillingLanguageAction}>
           <input type="hidden" name="lang" value={lang==='mm'?'en':'mm'}/>

@@ -51,6 +51,10 @@ export default async function BillingOverview(){
     </div>
     {pendingReview>0&&<div className="billing-note mb-8">⚠️ {L.verifying} <Link className="text-violet-300" href="/billing/payments">{lang==='mm'?'စိစစ်မှု ကြည့်ရန်':'Review status'} →</Link></div>}
     {outstandingMmk>0&&<div className="billing-note mb-8">{L.note}</div>}
+    <div className="billing-overview-grid">
+      <section className="admin-panel"><p className="billing-kpi-label">{lang==='mm'?'စာရင်းသွင်းမှု':'Subscription'}</p><h2 className="mt-3 text-lg font-semibold">{subscription?.plan.name??L.noPlan}</h2><p className="mt-2 text-sm text-slate-400">{subscription?subscription.status.replaceAll('_',' ').toLowerCase()+' · '+subscription.cycle.toLowerCase():lang==='mm'?'အစီအစဉ်မရွေးရသေးပါ':'Choose a plan when you are ready.'}</p><Link href="/billing/subscription" className="mt-5 inline-flex text-sm text-violet-300">{lang==='mm'?'အသေးစိတ်ကြည့်ရန်':'Manage subscription'} →</Link></section>
+      <section className="admin-panel"><p className="billing-kpi-label">{lang==='mm'?'အသုံးပြုမှု':'Usage this period'}</p><div className="mt-4 grid grid-cols-2 gap-4 text-sm"><div><p className="text-slate-500">AI credits</p><p className="mt-1 font-semibold">{formatNumber(aiUsage.totalQuantity,lang)} {lang==='mm'?'အသုံးပြု':'used'}</p></div><div><p className="text-slate-500">{lang==='mm'?'လက်ကျန်':'Balance'}</p><p className="mt-1 font-semibold text-cyan-200">{formatNumber(wallet?.balance??0,lang)}</p></div></div><Link href="/billing/usage" className="mt-5 inline-flex text-sm text-violet-300">{lang==='mm'?'အသုံးပြုမှုကြည့်ရန်':'View usage'} →</Link></section>
+    </div>
     <div className="admin-toolbar"><h2 className="text-lg font-semibold">{L.invoices}</h2><Link className="text-sm text-violet-300" href="/billing/invoices">{L.viewAll} →</Link></div>
     <div className="admin-panel overflow-x-auto">
       {invoices.length?<table className="admin-table"><thead><tr><th>#</th><th>{L.dueOn}</th><th>{L.total}</th><th>{L.paid}</th><th>{L.status}</th></tr></thead><tbody>

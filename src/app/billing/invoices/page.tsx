@@ -6,14 +6,14 @@ import {getBillingLang, formatMmk, formatDateTime} from '@/lib/billing/i18n';
 import {StatusBadge, Pagination} from '../_components';
 export const dynamic='force-dynamic';
 const PAGE_SIZE=10;
-export default async function BillingInvoices({searchParams}:{searchParams:Promise<{page?:string;status?:string}>}){
-  const {page:pageRaw,status}=await searchParams;
+export default async function BillingInvoices({searchParams}:{searchParams:Promise<{page?:string;status?:string;q?:string}>}){
+  const {page:pageRaw,status,q}=await searchParams;
   const user=await requireUser();
   const lang=await getBillingLang();
   const mm=lang==='mm';
   const page=Math.max(1,Number(pageRaw)||1);
   const accounts=await listBillingAccountsForUser(user);
-  const where={accountId:{in:accounts.map(a=>a.id)},...(status?{status:status as never}:{})};
+  const where={accountId:{in:accounts.map(a=>a.id)},...(status?{status:status as never}:{}),...(q?{invoiceNumber:{contains:q,mode:'insensitive' as const}}:{})};
   const [rows,count]=await Promise.all([
     prisma.billingInvoice.findMany({where,orderBy:{createdAt:'desc'},skip:(page-1)*PAGE_SIZE,take:PAGE_SIZE+1,include:{subscription:{include:{plan:true}}}}),
     prisma.billingInvoice.count({where}),
@@ -24,7 +24,8 @@ export default async function BillingInvoices({searchParams}:{searchParams:Promi
   return <main className="admin-content">
     <p className="eyebrow">{mm?'ငွေစာရင်း':'INVOICES'}</p>
     <h1 className="admin-title">{mm?'ငွေစာရင်း':'Invoices'}</h1>
-    <div className="mt-6 flex flex-wrap gap-2 text-xs">
+    <form className="billing-search mt-6" method="get"><input name="q" defaultValue={q||''} placeholder={mm?'ငွေစာရင်းနံပါတ်ရှာရန်':'Search invoice number'}/><button className="btn-outline" type="submit">{mm?'ရှာရန်':'Search'}</button></form>
+    <div className="mt-4 flex flex-wrap gap-2 text-xs">
       <Link className="admin-panel px-3 py-2" href="/billing/invoices">{mm?'အားလုံး':'All'}</Link>
       {filters.map(([value,label])=><Link className="admin-panel px-3 py-2" href={`/billing/invoices?status=${value}`} key={value}>{label}</Link>)}
     </div>
