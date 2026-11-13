@@ -8,6 +8,7 @@ import { prisma } from '@/lib/prisma';
 import { normalizeWorkspaceSlug, requireWorkspaceAccess } from '@/lib/workspaces';
 import { WorkspaceMemberRole } from '@prisma/client';
 import { emitWebhookEventSafely } from '@/lib/webhooks/events';
+import { assertSeatAvailable } from '@/lib/billing/seats';
 
 export async function createOrganization(formData: FormData): Promise<void> {
   const user = await requireUser();
@@ -39,7 +40,12 @@ export async function inviteWorkspaceMember(formData: FormData) {
   const target = await prisma.user.findUnique({ where: { email }, select: { id: true } });
   if (target && await prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId: access.workspace.id, userId: target.id } } })) return;
   const token = crypto.randomBytes(32).toString('hex');
-  await prisma.workspaceInvitation.create({ data: { workspaceId: access.workspace.id, email, role, tokenHash: crypto.createHash('sha256').update(token).digest('hex'), invitedById: access.user.id, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } });
+  await prisma.$transaction(async (tx) => {
+    // Phase 18: enforce seat limits transactionally so concurrent invitations
+    // cannot bypass the subscription's seat entitlement.
+    await assertSeatAvailable(access.workspace.id, access.workspace.organizationId, tx);
+    await tx.workspaceInvitation.create({ data: { workspaceId: access.workspace.id, email, role, tokenHash: crypto.createHash('sha256').update(token).digest('hex'), invitedById: access.user.id, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } });
+  });
   await prisma.workspaceAuditLog.create({ data: { workspaceId: access.workspace.id, actorId: access.user.id, action: 'MEMBER_INVITED', resource: 'WorkspaceInvitation', metadata: { email, role } } });
   emitWebhookEventSafely(access.workspace.id, 'workspace.member.invited', { email, role, workspace: { id: access.workspace.id, name: access.workspace.name } });
   revalidatePath(`/workspaces/${slug}/members`);

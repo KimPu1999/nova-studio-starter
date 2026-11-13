@@ -10,6 +10,7 @@ datasource db {
 enum RoleCode {
   SUPER_ADMIN
   ADMIN
+  FINANCE_ADMIN
   EDITOR
   SUPPORT_AGENT
   CUSTOMER
@@ -536,6 +537,16 @@ model User {
   integrationConnections       IntegrationConnection[]
   developerSandboxes           DeveloperSandbox[]
   apiAuditEvents               ApiAuditLog[]
+  billingAccounts              BillingAccount[]          @relation("BillingAccountOwner")
+  billingPaymentSubmissions    BillingPaymentAttempt[]   @relation("BillingPaymentSubmitter")
+  billingPaymentReviews        BillingPaymentAttempt[]   @relation("BillingPaymentReviewer")
+  billingLedgerPostings        BillingLedgerEntry[]      @relation("BillingLedgerPoster")
+  billingCreditNoteRequests    BillingCreditNote[]       @relation("BillingCreditNoteRequester")
+  billingCreditNoteReviews     BillingCreditNote[]       @relation("BillingCreditNoteReviewer")
+  billingReconciliationsOpened BillingReconciliation[]   @relation("BillingReconciliationImporter")
+  billingReconciliationsClosed BillingReconciliation[]   @relation("BillingReconciliationCloser")
+  billingReconciliationReviews BillingReconciliationItem[] @relation("BillingReconciliationReviewer")
+  billingAuditActions          BillingAuditLog[]         @relation("BillingAuditActor")
 
   @@index([roleId])
 }
@@ -2738,6 +2749,7 @@ model Organization {
   securityPolicies SecurityPolicy[]
   securityAuditLogs SecurityAuditLog[]
   securityEvents SecurityEvent[]
+  billingAccount BillingAccount?
 
   @@index([ownerId, createdAt])
 }
@@ -3547,4 +3559,576 @@ model ApiIdempotencyRecord {
 
   @@unique([principalKey, operation, idempotencyKey])
   @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 18 — SaaS Subscription Billing, Revenue Operations & Monetization
+// ---------------------------------------------------------------------------
+
+enum BillingAccountType {
+  PERSONAL
+  ORGANIZATION
+}
+
+enum BillingPlanTier {
+  FREE
+  STARTER
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+enum BillingPlanVersionStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+}
+
+enum BillingSubscriptionStatus {
+  INCOMPLETE
+  PENDING_PAYMENT
+  ACTIVE
+  PAST_DUE
+  GRACE_PERIOD
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+enum BillingScopeType {
+  PERSONAL
+  WORKSPACE
+  WEBSITE
+}
+
+enum BillingSubscriptionItemType {
+  PLAN_BASE
+  SEAT_ADDON
+  AI_CREDITS_ADDON
+  HOSTING_ADDON
+  ADJUSTMENT
+}
+
+enum BillingInvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  VOID
+  OVERDUE
+}
+
+enum BillingInvoiceLineType {
+  SUBSCRIPTION_PLAN
+  SEATS
+  AI_CREDITS
+  HOSTING
+  API_USAGE
+  ADJUSTMENT
+  OTHER
+}
+
+enum BillingPaymentMethod {
+  KBZPAY
+  WAVEPAY
+  BANK_TRANSFER
+}
+
+enum BillingPaymentAttemptStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum BillingCreditNoteType {
+  REFUND
+  CREDIT_ADJUSTMENT
+}
+
+enum BillingCreditNoteStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  ISSUED
+  COMPLETED
+  VOID
+}
+
+enum BillingUsageMeterCode {
+  AI_TOKENS
+  AI_CREDITS
+  API_REQUESTS
+  HOSTING_STORAGE_MB
+  HOSTING_BANDWIDTH_MB
+  DEPLOYMENTS
+}
+
+enum BillingUsageSubjectType {
+  USER
+  WORKSPACE
+  WEBSITE
+  API_CREDENTIAL
+}
+
+enum BillingUsageQuality {
+  ESTIMATED
+  VERIFIED
+}
+
+enum BillingLedgerEntryType {
+  CASH_RECEIPT
+  DEFERRED_REVENUE
+  REVENUE_RECOGNIZED
+  REVENUE_ADJUSTMENT
+  REFUND
+  CREDIT_NOTE_ISSUED
+  CREDIT_REVERSAL
+}
+
+enum BillingLedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+enum BillingReconciliationStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum BillingReconciliationItemKind {
+  PAYMENT_ATTEMPT
+  LEDGER_ENTRY
+  INVOICE
+}
+
+enum BillingReconciliationItemStatus {
+  UNMATCHED
+  MATCHED
+  INVESTIGATING
+  RESOLVED
+}
+
+model BillingAccount {
+  id             String             @id @default(uuid()) @db.Uuid
+  billingKey     String             @unique
+  type           BillingAccountType
+  ownerUserId    String             @db.Uuid
+  organizationId String?            @unique @db.Uuid
+  name           String
+  contactName    String?
+  contactEmail   String?
+  contactPhone   String?
+  companyInfo    String?
+  currency       String             @default("MMK")
+  invoicePrefix  String             @default("NV")
+  preferences    Json?
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  owner          User               @relation("BillingAccountOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  organization   Organization?      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  subscriptions  BillingSubscription[]
+  invoices       BillingInvoice[]
+  paymentAttempts BillingPaymentAttempt[]
+  creditNotes    BillingCreditNote[]
+  entitlements   BillingEntitlement[]
+  ledgerEntries  BillingLedgerEntry[]
+
+  @@index([ownerUserId, type])
+  @@index([type, isActive])
+}
+
+model BillingPlan {
+  id          String               @id @default(uuid()) @db.Uuid
+  code        String               @unique
+  tier        BillingPlanTier      @unique
+  name        String
+  description String?
+  isActive    Boolean              @default(true)
+  sortOrder   Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  versions    BillingPlanVersion[]
+  subscriptions BillingSubscription[]
+}
+
+model BillingPlanVersion {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  planId              String                   @db.Uuid
+  version             Int
+  status              BillingPlanVersionStatus @default(DRAFT)
+  currency            String                   @default("MMK")
+  monthlyPriceMmk     Int
+  annualPriceMmk      Int
+  includedSeats       Int                      @default(1)
+  maxSeats            Int?
+  websitesLimit       Int?
+  customDomainsLimit  Int?
+  storageMb           Int?
+  bandwidthMb         Int?
+  monthlyAiCredits    Int                      @default(0)
+  monthlyApiRequests  Int?
+  features            String[]                 @default([])
+  notes               String?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  plan                BillingPlan              @relation(fields: [planId], references: [id], onDelete: Restrict)
+  subscriptions       BillingSubscription[]
+  invoiceLines        BillingInvoiceLine[]
+
+  @@unique([planId, version])
+  @@index([planId, status])
+}
+
+model BillingSubscription {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  accountId          String                   @db.Uuid
+  scopeType          BillingScopeType
+  scopeKey           String
+  slotKey            String?                  @unique
+  planId             String                   @db.Uuid
+  planVersionId      String                   @db.Uuid
+  cycle              BillingCycle
+  status             BillingSubscriptionStatus @default(INCOMPLETE)
+  currency           String                   @default("MMK")
+  priceMmk           Int                      @default(0)
+  startsAt           DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  renewsAt           DateTime?
+  graceUntil         DateTime?
+  cancelAtPeriodEnd  Boolean                  @default(false)
+  cancelledAt        DateTime?
+  endedAt            DateTime?
+  lastRenewalKey     String?
+  idempotencyKey     String                   @unique
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  account            BillingAccount           @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  plan               BillingPlan              @relation(fields: [planId], references: [id], onDelete: Restrict)
+  planVersion        BillingPlanVersion       @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+  items              BillingSubscriptionItem[]
+  invoices           BillingInvoice[]
+  entitlements       BillingEntitlement[]
+
+  @@unique([accountId, scopeType, scopeKey, idempotencyKey])
+  @@index([accountId, status])
+  @@index([status, renewsAt])
+  @@index([scopeType, scopeKey])
+}
+
+model BillingSubscriptionItem {
+  id             String                     @id @default(uuid()) @db.Uuid
+  subscriptionId String                     @db.Uuid
+  itemType       BillingSubscriptionItemType
+  description    String
+  quantity       Int                        @default(1)
+  unitAmountMmk  Int                        @default(0)
+  amountMmk      Int                        @default(0)
+  currency       String                     @default("MMK")
+  createdAt      DateTime                   @default(now())
+  subscription   BillingSubscription        @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, itemType])
+}
+
+model BillingInvoice {
+  id              String              @id @default(uuid()) @db.Uuid
+  invoiceNumber   String              @unique
+  accountId       String              @db.Uuid
+  subscriptionId  String?             @db.Uuid
+  purpose         String              @default("SUBSCRIPTION")
+  status          BillingInvoiceStatus @default(DRAFT)
+  currency        String              @default("MMK")
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  issuedAt        DateTime?
+  dueAt           DateTime?
+  paidAt          DateTime?
+  voidedAt        DateTime?
+  subtotalMmk     Int                 @default(0)
+  discountMmk     Int                 @default(0)
+  taxMmk          Int                 @default(0)
+  totalMmk        Int                 @default(0)
+  amountPaidMmk   Int                 @default(0)
+  snapshot        Json?
+  metadata        Json?
+  notes           String?
+  idempotencyKey  String              @unique
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  account         BillingAccount      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  subscription    BillingSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  lines           BillingInvoiceLine[]
+  paymentAttempts BillingPaymentAttempt[]
+  creditNotes     BillingCreditNote[]
+  ledgerEntries   BillingLedgerEntry[]
+
+  @@index([accountId, status, createdAt])
+  @@index([status, dueAt])
+  @@index([subscriptionId, createdAt])
+}
+
+model BillingInvoiceLine {
+  id             String                @id @default(uuid()) @db.Uuid
+  invoiceId      String                @db.Uuid
+  lineType       BillingInvoiceLineType
+  description    String
+  quantity       Int                   @default(1)
+  unitAmountMmk  Int
+  amountMmk      Int
+  planVersionId  String?               @db.Uuid
+  createdAt      DateTime              @default(now())
+  invoice        BillingInvoice        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  planVersion    BillingPlanVersion?   @relation(fields: [planVersionId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+}
+
+model BillingPaymentAttempt {
+  id                   String                      @id @default(uuid()) @db.Uuid
+  invoiceId            String                      @db.Uuid
+  accountId            String                      @db.Uuid
+  method               BillingPaymentMethod
+  amountMmk            Int
+  currency             String                      @default("MMK")
+  transactionReference String
+  proofStorageKey      String?
+  proofMimeType        String?
+  status               BillingPaymentAttemptStatus @default(PENDING_REVIEW)
+  submittedById        String                      @db.Uuid
+  submittedAt          DateTime                    @default(now())
+  reviewedById         String?                     @db.Uuid
+  reviewedAt           DateTime?
+  rejectionReason      String?
+  verificationNote     String?
+  idempotencyKey       String                      @unique
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  invoice              BillingInvoice              @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  account              BillingAccount              @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  submittedBy          User                        @relation("BillingPaymentSubmitter", fields: [submittedById], references: [id], onDelete: Restrict)
+  reviewer             User?                       @relation("BillingPaymentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([method, transactionReference])
+  @@index([invoiceId, status, createdAt])
+  @@index([accountId, status, createdAt])
+  @@index([status, createdAt])
+}
+
+model BillingCreditPackage {
+  id           String   @id @default(uuid()) @db.Uuid
+  code         String   @unique
+  name         String
+  credits      Int
+  bonusCredits Int      @default(0)
+  priceMmk     Int
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+model BillingCreditNote {
+  id                 String                @id @default(uuid()) @db.Uuid
+  creditNoteNumber   String                @unique
+  invoiceId          String?               @db.Uuid
+  accountId          String                @db.Uuid
+  type               BillingCreditNoteType @default(REFUND)
+  status             BillingCreditNoteStatus @default(REQUESTED)
+  amountMmk          Int
+  currency           String                @default("MMK")
+  reason             String
+  creditsReversed    Int                   @default(0)
+  requestedById      String                @db.Uuid
+  reviewedById       String?               @db.Uuid
+  reviewedAt         DateTime?
+  reviewNote         String?
+  issuedAt           DateTime?
+  payoutMethod       String?
+  payoutReference    String?
+  payoutConfirmedAt  DateTime?
+  payoutConfirmedById String?              @db.Uuid
+  idempotencyKey     String                @unique
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  invoice            BillingInvoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  account            BillingAccount        @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  requester          User                  @relation("BillingCreditNoteRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewer           User?                 @relation("BillingCreditNoteReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([accountId, status, createdAt])
+  @@index([invoiceId])
+  @@index([status, createdAt])
+}
+
+model BillingUsageMeter {
+  id          String               @id @default(uuid()) @db.Uuid
+  code        BillingUsageMeterCode @unique
+  name        String
+  unit        String
+  description String?
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  events      BillingUsageEvent[]
+}
+
+model BillingUsageEvent {
+  id             String                 @id @default(uuid()) @db.Uuid
+  meterId        String                 @db.Uuid
+  sourceEventId  String
+  sourceType     String
+  sourceId       String?
+  subjectType    BillingUsageSubjectType
+  subjectId      String
+  quantity       Int
+  quality        BillingUsageQuality    @default(ESTIMATED)
+  occurredAt     DateTime               @default(now())
+  periodStart    DateTime
+  periodEnd      DateTime
+  ingestedAt     DateTime               @default(now())
+  createdAt      DateTime               @default(now())
+  meter          BillingUsageMeter      @relation(fields: [meterId], references: [id], onDelete: Restrict)
+
+  @@unique([meterId, sourceEventId])
+  @@index([meterId, subjectType, subjectId, periodStart])
+  @@index([subjectType, subjectId, occurredAt])
+}
+
+model BillingUsageAggregate {
+  id            String      @id @default(uuid()) @db.Uuid
+  meterId       String      @db.Uuid
+  subjectType   BillingUsageSubjectType
+  subjectId     String
+  periodStart   DateTime
+  periodEnd     DateTime
+  totalQuantity Int         @default(0)
+  eventCount    Int         @default(0)
+  lastEventAt   DateTime?
+  isEstimated   Boolean     @default(true)
+  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime    @default(now())
+
+  @@unique([meterId, subjectType, subjectId, periodStart, periodEnd])
+  @@index([subjectType, subjectId, periodStart])
+}
+
+model BillingEntitlement {
+  id                  String   @id @default(uuid()) @db.Uuid
+  accountId           String   @db.Uuid
+  scopeKey            String   @default("GLOBAL")
+  featureKey          String
+  valueInt            Int?
+  valueBool           Boolean?
+  enabled             Boolean  @default(true)
+  sourceSubscriptionId String? @db.Uuid
+  syncedAt            DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  account             BillingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  subscription        BillingSubscription? @relation(fields: [sourceSubscriptionId], references: [id], onDelete: SetNull)
+
+  @@unique([accountId, scopeKey, featureKey])
+  @@index([accountId, enabled])
+}
+
+model BillingLedgerEntry {
+  id              String                  @id @default(uuid()) @db.Uuid
+  entryType       BillingLedgerEntryType
+  direction       BillingLedgerDirection
+  amountMmk       Int
+  currency        String                  @default("MMK")
+  accountId       String?                 @db.Uuid
+  invoiceId       String?                 @db.Uuid
+  paymentAttemptId String?                @db.Uuid
+  creditNoteId    String?                 @db.Uuid
+  sourceType      String
+  sourceId        String
+  memo            String?
+  idempotencyKey  String                  @unique
+  postedById      String?                 @db.Uuid
+  postedAt        DateTime                @default(now())
+  createdAt       DateTime                @default(now())
+  account         BillingAccount?         @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  invoice         BillingInvoice?         @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  postedBy        User?                   @relation("BillingLedgerPoster", fields: [postedById], references: [id], onDelete: SetNull)
+
+  @@index([entryType, postedAt])
+  @@index([accountId, postedAt])
+  @@index([sourceType, sourceId])
+}
+
+model BillingReconciliation {
+  id                      String                     @id @default(uuid()) @db.Uuid
+  reportNumber            String                     @unique
+  periodStart             DateTime
+  periodEnd               DateTime
+  status                  BillingReconciliationStatus @default(OPEN)
+  statementName           String?
+  statementStorageKey     String?
+  totalStatementAmountMmk Int?
+  matchedCount            Int                        @default(0)
+  matchedAmountMmk        Int                        @default(0)
+  unmatchedCount          Int                        @default(0)
+  unmatchedAmountMmk      Int                        @default(0)
+  notes                   String?
+  importedById            String                     @db.Uuid
+  openedAt                DateTime                   @default(now())
+  closedAt                DateTime?
+  closedById              String?                    @db.Uuid
+  importer                User                       @relation("BillingReconciliationImporter", fields: [importedById], references: [id], onDelete: Restrict)
+  closer                  User?                      @relation("BillingReconciliationCloser", fields: [closedById], references: [id], onDelete: SetNull)
+  items                   BillingReconciliationItem[]
+  createdAt               DateTime                   @default(now())
+  updatedAt               DateTime                   @updatedAt
+
+  @@index([status, openedAt])
+}
+
+model BillingReconciliationItem {
+  id                String                          @id @default(uuid()) @db.Uuid
+  reconciliationId  String                          @db.Uuid
+  kind              BillingReconciliationItemKind
+  reference         String
+  amountMmk         Int
+  status            BillingReconciliationItemStatus @default(UNMATCHED)
+  matchTargetType   String?
+  matchTargetId     String?
+  note              String?
+  reviewedById      String?                         @db.Uuid
+  resolvedAt        DateTime?
+  reconciliation    BillingReconciliation           @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+  reviewer          User?                           @relation("BillingReconciliationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime                        @default(now())
+  updatedAt         DateTime                        @updatedAt
+
+  @@unique([reconciliationId, kind, reference])
+  @@index([reconciliationId, status])
+}
+
+model BillingAuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorId     String?  @db.Uuid
+  accountId   String?  @db.Uuid
+  entityType  String
+  entityId    String?
+  action      String
+  before      Json?
+  after       Json?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  actor       User?    @relation("BillingAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([accountId, createdAt])
+  @@index([actorId, createdAt])
 }

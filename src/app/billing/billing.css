@@ -1,0 +1,37 @@
+/* Phase 18 — premium dark billing widgets. Extends the shared admin design system. */
+.billing-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:35px 0}
+.billing-kpi{border:1px solid #ffffff14;border-radius:15px;background:#13131e;padding:20px}
+.billing-kpi-label{color:#717188;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+.billing-kpi-value{margin-top:8px;font-size:clamp(1.2rem,2.4vw,1.7rem);font-weight:750;letter-spacing:-.03em;color:#f8fafc}
+.billing-kpi-sub{margin-top:4px;font-size:.75rem;color:#9292a6}
+.billing-kpi-accent{border-color:#8b5cf655;background:linear-gradient(160deg,#8b5cf61a,#13131e 60%)}
+.billing-kpi-cyan{border-color:#22d3ee44;background:linear-gradient(160deg,#22d3ee14,#13131e 60%)}
+.plan-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:30px}
+.plan-card{display:flex;flex-direction:column;gap:14px;border:1px solid #ffffff14;border-radius:16px;background:#13131e;padding:24px}
+.plan-card-featured{border-color:#8b5cf660;box-shadow:0 0 0 1px #8b5cf633,0 18px 50px -30px #8b5cf680}
+.plan-name{font-weight:700;color:#f8fafc}
+.plan-price{font-size:1.65rem;font-weight:750;letter-spacing:-.04em;color:#f8fafc}
+.plan-price small{font-size:.75rem;font-weight:500;color:#717188}
+.plan-features{display:grid;gap:7px;font-size:.8rem;color:#9292a6}
+.plan-features li{display:flex;gap:8px;align-items:baseline}
+.plan-features li::before{content:'✓';color:#22d3ee;font-size:.7rem}
+.plan-features li.no::before{content:'—';color:#4a4a5e}
+.cycle-selector{display:inline-flex;border:1px solid #ffffff14;border-radius:100px;padding:4px;background:#171725}
+.cycle-selector a{border-radius:100px;padding:8px 16px;font-size:.8rem;color:#9292a6}
+.cycle-selector a.active{background:#8b5cf6;color:#fff}
+.usage-row{display:grid;gap:6px;margin-top:18px}
+.usage-head{display:flex;justify-content:space-between;font-size:.8rem;color:#9292a6}
+.usage-bar{height:8px;border-radius:100px;background:#ffffff0d;overflow:hidden}
+.usage-bar span{display:block;height:100%;border-radius:100px;background:linear-gradient(90deg,#8b5cf6,#22d3ee)}
+.usage-bar span.warn{background:linear-gradient(90deg,#f59e0b,#f87171)}
+.skeleton{position:relative;overflow:hidden;background:#171725;border-radius:10px}
+.skeleton::after{content:'';position:absolute;inset:0;animation:skeleton-shimmer 1.4s infinite;background:linear-gradient(90deg,transparent,#ffffff0d,transparent)}
+@keyframes skeleton-shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.billing-note{border:1px solid #22d3ee33;border-radius:10px;background:#22d3ee0a;padding:10px 12px;color:#a5f3fc;font-size:.78rem}
+.badge-danger{background:#f871711c;color:#fca5a5}
+.billing-drawer{border:1px solid #ffffff14;border-radius:15px;background:#171725;padding:22px;margin-top:18px}
+.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 22px;font-size:.82rem;color:#9292a6}
+.detail-grid dt{color:#717188;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em}
+.detail-grid dd{margin:3px 0 0;color:#e6e6ef}
+@media(max-width:1100px){.billing-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.detail-grid{grid-template-columns:1fr}}

@@ -187,10 +187,22 @@ async function finishAuth(request: Request, principal: ApiPrincipal, options: { 
   }
 
   // Monthly workspace quota (shared by every credential of the workspace).
+  // Phase 18: prefer the verified subscription's API entitlement, then the
+  // workspace ApiQuotaPolicy, then the platform default.
   const quotaKey = principal.workspaceId ? `workspace:${principal.workspaceId}` : principal.userId ? `user:${principal.userId}` : null;
   if (quotaKey) {
-    const policy = principal.workspaceId ? await prisma.apiQuotaPolicy.findUnique({ where: { workspaceId: principal.workspaceId } }) : null;
-    const monthlyLimit = policy?.monthlyRequests ?? apiLimits.monthlyQuotaDefault;
+    let monthlyLimit = apiLimits.monthlyQuotaDefault;
+    if (principal.workspaceId) {
+      const [policy, account] = await Promise.all([
+        prisma.apiQuotaPolicy.findUnique({ where: { workspaceId: principal.workspaceId } }),
+        prisma.billingAccount.findUnique({ where: { billingKey: `ORG:${(await prisma.workspace.findUnique({ where: { id: principal.workspaceId }, select: { organizationId: true } }))?.organizationId}` } }),
+      ]);
+      if (account) {
+        const entitlement = await prisma.billingEntitlement.findFirst({ where: { accountId: account.id, enabled: true, featureKey: 'api.requests.monthly' } });
+        if (entitlement?.valueInt != null) monthlyLimit = entitlement.valueInt;
+      }
+      if (monthlyLimit === apiLimits.monthlyQuotaDefault && policy?.monthlyRequests) monthlyLimit = policy.monthlyRequests;
+    }
     const quota = await monthlyQuotaCheck(quotaKey, monthlyLimit);
     if (!quota.allowed) {
       return { response: apiError('QUOTA_EXCEEDED', 'Monthly API quota exhausted for this workspace.', 429, id, { 'retry-after': String(quota.retryAfterSeconds) }) };
