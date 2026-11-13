@@ -2476,8 +2476,8 @@ model AiCreditLedger {
 model AiUsageRecord {
   id             String      @id @default(uuid()) @db.Uuid
   userId         String      @db.Uuid
-  providerId     String?
-  modelId        String?
+  providerId     String?     @db.Uuid
+  modelId        String?     @db.Uuid
   feature        String
   inputTokens    Int?
   outputTokens   Int?
@@ -3410,12 +3410,12 @@ model WebhookSubscription {
 model WebhookEvent {
   id          String              @id @default(uuid()) @db.Uuid
   eventId     String              @unique
-  workspaceId String              @db.Uuid
+  workspaceId String?             @db.Uuid
   eventType   String
   version     String
   payload     Json
   createdAt   DateTime            @default(now())
-  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace   Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   deliveries  WebhookDelivery[]
 
   @@index([workspaceId, eventType, createdAt])
@@ -3434,6 +3434,7 @@ model WebhookDelivery {
   createdAt    DateTime             @default(now())
   event        WebhookEvent         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   endpoint     WebhookEndpoint      @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  attempts     WebhookDeliveryAttempt[]
 
   @@unique([eventId, endpointId])
   @@index([status, nextAttemptAt])
@@ -3503,6 +3504,34 @@ model ApiAuditLog {
 
   @@index([workspaceId, createdAt])
   @@index([action, createdAt])
+}
+
+model ApiRateCounter {
+  id          String   @id @default(uuid()) @db.Uuid
+  scope       String
+  key         String
+  windowStart DateTime
+  count       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([scope, key, windowStart])
+  @@index([windowStart])
+}
+
+model WebhookDeliveryAttempt {
+  id           String          @id @default(uuid()) @db.Uuid
+  deliveryId   String          @db.Uuid
+  attemptNumber Int
+  ok           Boolean
+  statusCode   Int?
+  errorKind    String?
+  durationMs   Int?
+  createdAt    DateTime        @default(now())
+  delivery     WebhookDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@unique([deliveryId, attemptNumber])
+  @@index([deliveryId, createdAt])
 }
 
 model ApiIdempotencyRecord {

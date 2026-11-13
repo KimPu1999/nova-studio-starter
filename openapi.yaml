@@ -1,0 +1,705 @@
+openapi: 3.1.0
+info:
+  title: NOVA Studio Public API
+  version: 1.0.0
+  summary: Versioned, scoped access to NOVA Studio workspace data.
+  description: |
+    NOVA API v1. Four credential kinds are accepted as Bearer tokens: personal
+    API keys (`nova_sk_…`), workspace service-account secrets, OAuth 2.0
+    access tokens (`nova_at_…`) and sandbox keys (`nova_sb_…`). Sandbox keys
+    may only call `/api/v1/sandbox/*` endpoints.
+
+    Scope enforcement, workspace isolation, rate limits and quotas are applied
+    server-side on every request. Payment approval and payout operations are
+    intentionally not exposed through the public API.
+  contact:
+    name: NOVA Developer Platform
+    url: /developers
+  license:
+    name: Proprietary
+servers:
+  - url: https://your-domain.example
+    description: Replace with your NOVA Studio deployment origin.
+tags:
+  - name: Account
+  - name: Workspaces
+  - name: Projects
+  - name: Websites
+  - name: Deployments
+  - name: Marketplace
+  - name: AI Usage
+  - name: Webhooks
+  - name: Sandbox
+  - name: OAuth
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/me:
+    get:
+      tags: [Account]
+      summary: Get the authenticated profile
+      description: Requires the `profile:read` scope.
+      operationId: getMe
+      responses:
+        '200':
+          description: Authenticated user profile.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id: { type: string, format: uuid }
+                          name: { type: [string, 'null'] }
+                          email: { type: string }
+                          createdAt: { type: string, format: date-time }
+                          role: { type: object, properties: { code: { type: string }, name: { type: string } } }
+        default: { $ref: '#/components/responses/ApiError' }
+  /api/v1/workspaces:
+    get:
+      tags: [Workspaces]
+      summary: List the caller's workspaces
+      description: Requires the `workspaces:read` scope.
+      operationId: listWorkspaces
+      responses:
+        '200':
+          description: Workspaces the caller belongs to.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: string, format: uuid }
+                            name: { type: string }
+                            slug: { type: string }
+                            role: { type: string }
+                            organization: { type: object, properties: { id: { type: string, format: uuid }, name: { type: string }, slug: { type: string } } }
+        default: { $ref: '#/components/responses/ApiError' }
+  /api/v1/projects:
+    get:
+      tags: [Projects]
+      summary: List workspace projects (cursor-paginated)
+      operationId: listProjects
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Cursor-paginated projects.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - $ref: '#/components/schemas/Page'
+        default: { $ref: '#/components/responses/ApiError' }
+    post:
+      tags: [Projects]
+      summary: Share an AI project with a workspace
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspaceId, aiProjectId]
+              properties:
+                workspaceId: { type: string, format: uuid }
+                aiProjectId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Project shared.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties: { data: { type: object, properties: { id: { type: string, format: uuid } } } }
+        '403': { description: Caller cannot create projects in this workspace. }
+        '404': { description: AI project not found or not owned by caller. }
+        '409': { description: AI project already shared with a workspace. }
+        default: { $ref: '#/components/responses/ApiError' }
+  /api/v1/projects/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [Projects]
+      summary: Get a project
+      operationId: getProject
+      responses:
+        '200':
+          description: Project detail including the AI schema.
+          content:
+            application/json:
+              schema:
+                allOf: [{ $ref: '#/components/schemas/Envelope' }]
+        '404': { description: Project not found or outside caller's workspaces. }
+        default: { $ref: '#/components/responses/ApiError' }
+    patch:
+      tags: [Projects]
+      summary: Update a project name and/or description
+      operationId: updateProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              minProperties: 1
+              type: object
+              properties:
+                name: { type: string, minLength: 1, maxLength: 120 }
+                description: { type: string, maxLength: 2000 }
+      responses:
+        '200': { description: Updated project. }
+        '400': { description: Validation error. }
+        '403': { description: No permission to update. }
+        '404': { description: Not found. }
+        default: { $ref: '#/components/responses/ApiError' }
+  /api/v1/websites:
+    get:
+      tags: [Websites]
+      summary: List the caller's hosted websites
+      operationId: listWebsites
+      responses:
+        '200':
+          description: Websites owned by the caller.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: string, format: uuid }
+                            name: { type: string }
+                            slug: { type: string }
+                            status: { type: string }
+                            createdAt: { type: string, format: date-time }
+                            updatedAt: { type: string, format: date-time }
+        default: { $ref: '#/components/responses/ApiError' }
+  /api/v1/websites/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [Websites]
+      summary: Get a hosted website with recent deployments
+      operationId: getWebsite
+      responses:
+        '200': { description: Website detail. }
+        '404': { description: Website not found or not owned by caller. }
+        default: { $ref: '#/components/responses/ApiError' }
+  /api/v1/deployments:
+    get:
+      tags: [Deployments]
+      summary: List the caller's deployments (cursor-paginated)
+      operationId: listDeployments
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Cursor-paginated deployments.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - $ref: '#/components/schemas/Page'
+        default: { $ref: '#/components/responses/ApiError' }
+    post:
+      tags: [Deployments]
+      summary: Queue a deployment for one of the caller's websites
+      description: |
+        Requires an `Idempotency-Key` header (8–255 chars, `[A-Za-z0-9._-]`).
+        Retries with the same key and payload replay the original response;
+        a different payload with the same key returns 409 IDEMPOTENCY_CONFLICT.
+      operationId: createDeployment
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255, pattern: '^[A-Za-z0-9._-]+$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [websiteId]
+              properties:
+                websiteId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Deployment queued.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id: { type: string, format: uuid }
+                          number: { type: integer }
+                          status: { type: string, enum: [QUEUED] }
+                          websiteId: { type: string, format: uuid }
+                          createdAt: { type: string, format: date-time }
+        '400': { description: Missing Idempotency-Key, invalid body, undeployable schema or no revisions. }
+        '404': { description: Website not found or not owned by caller. }
+        '409': { description: IDEMPOTENCY_CONFLICT or RESOURCE_LOCKED. }
+        default: { $ref: '#/components/responses/ApiError' }
+  /api/v1/deployments/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [Deployments]
+      summary: Get a deployment with its logs
+      operationId: getDeployment
+      responses:
+        '200': { description: Deployment detail. }
+        '404': { description: Deployment not found or not owned by caller. }
+        default: { $ref: '#/components/responses/ApiError' }
+  /api/v1/marketplace/products:
+    get:
+      tags: [Marketplace]
+      summary: List published marketplace products (cursor-paginated)
+      operationId: listMarketplaceProducts
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Cursor-paginated published products.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - $ref: '#/components/schemas/Page'
+        default: { $ref: '#/components/responses/ApiError' }
+  /api/v1/ai/usage:
+    get:
+      tags: [AI Usage]
+      summary: Get the caller's AI usage totals
+      operationId: getAiUsage
+      responses:
+        '200':
+          description: Aggregated AI usage.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          records: { type: integer }
+                          creditsConsumed: { type: number }
+                          inputTokens: { type: [integer, 'null'] }
+                          outputTokens: { type: [integer, 'null'] }
+        default: { $ref: '#/components/responses/ApiError' }
+  /api/v1/webhooks:
+    get:
+      tags: [Webhooks]
+      summary: List webhook endpoints visible to the caller (cursor-paginated)
+      operationId: listWebhookEndpoints
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Cursor-paginated endpoints (no signing secrets).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - $ref: '#/components/schemas/Page'
+        default: { $ref: '#/components/responses/ApiError' }
+    post:
+      tags: [Webhooks]
+      summary: Register a webhook endpoint
+      description: |
+        The signing secret (`whsec_…`) is returned exactly once and stored
+        only encrypted. Endpoints must be HTTPS on port 443 or 8443; private
+        ranges and internal hostnames are rejected (SSRF protection).
+      operationId: createWebhookEndpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspaceId, url, events]
+              properties:
+                workspaceId: { type: string, format: uuid }
+                url: { type: string, format: uri, minLength: 12, maxLength: 2000 }
+                events:
+                  type: array
+                  minItems: 1
+                  maxItems: 9
+                  items: { $ref: '#/components/schemas/WebhookEventType' }
+      responses:
+        '201':
+          description: Endpoint created; signing secret shown once.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id: { type: string, format: uuid }
+                          url: { type: string, format: uri }
+                          status: { type: string }
+                          signingSecret: { type: string, description: Shown exactly once. }
+                          subscriptions:
+                            type: array
+                            items:
+                              type: object
+                              properties: { eventType: { $ref: '#/components/schemas/WebhookEventType' }, version: { type: string }, isActive: { type: boolean } }
+        '400': { description: Validation error or URL policy rejection. }
+        '403': { description: Caller cannot manage webhooks in that workspace. }
+        default: { $ref: '#/components/responses/ApiError' }
+  /api/v1/webhooks/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    patch:
+      tags: [Webhooks]
+      summary: Update a webhook endpoint's URL, subscriptions or status
+      operationId: updateWebhookEndpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url: { type: string, format: uri, minLength: 12, maxLength: 2000 }
+                events:
+                  type: array
+                  minItems: 1
+                  maxItems: 9
+                  items: { $ref: '#/components/schemas/WebhookEventType' }
+                status: { type: string, enum: [ACTIVE, DISABLED] }
+      responses:
+        '200': { description: Updated endpoint. }
+        '404': { description: Endpoint not found or not managed by caller. }
+        default: { $ref: '#/components/responses/ApiError' }
+    post:
+      tags: [Webhooks]
+      summary: Rotate the endpoint's signing secret
+      description: The new secret is returned exactly once; the previous version is revoked immediately.
+      operationId: rotateWebhookSecret
+      responses:
+        '201':
+          description: New signing secret issued.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id: { type: string, format: uuid }
+                          signingSecretVersion: { type: integer }
+                          signingSecret: { type: string, description: Shown exactly once. }
+        '404': { description: Endpoint not found or not managed by caller. }
+        default: { $ref: '#/components/responses/ApiError' }
+    delete:
+      tags: [Webhooks]
+      summary: Revoke (soft-delete) a webhook endpoint
+      operationId: deleteWebhookEndpoint
+      responses:
+        '200': { description: Endpoint revoked. }
+        '404': { description: Endpoint not found or not managed by caller. }
+        default: { $ref: '#/components/responses/ApiError' }
+  /api/v1/sandbox/events:
+    get:
+      tags: [Sandbox]
+      summary: List simulated sandbox events
+      description: Sandbox keys only (`nova_sb_…`); production credentials receive SANDBOX_ONLY.
+      operationId: listSandboxEvents
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Cursor-paginated sandbox events.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - $ref: '#/components/schemas/Page'
+        '400': { description: SANDBOX_ONLY or sandbox not linked to a workspace. }
+        default: { $ref: '#/components/responses/ApiError' }
+    post:
+      tags: [Sandbox]
+      summary: Simulate a webhook event in the sandbox
+      description: Creates a clearly-labelled SANDBOX event delivered only to the sandbox workspace's endpoints. No production records are touched.
+      operationId: simulateSandboxEvent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventType]
+              properties:
+                eventType: { $ref: '#/components/schemas/WebhookEventType' }
+                data: { type: object, additionalProperties: true, default: {} }
+      responses:
+        '202':
+          description: Event enqueued for simulated delivery.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          eventId: { type: string }
+                          eventType: { $ref: '#/components/schemas/WebhookEventType' }
+                          simulated: { type: boolean, const: true }
+                          environment: { type: string, const: SANDBOX }
+                          deliveryCount: { type: integer }
+        '400': { description: Validation error or sandbox not linked to a workspace. }
+        default: { $ref: '#/components/responses/ApiError' }
+  /api/v1/sandbox/usage:
+    get:
+      tags: [Sandbox]
+      summary: Sandbox quota and usage
+      description: Sandbox keys only (`nova_sb_…`).
+      operationId: getSandboxUsage
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Sandbox quota state.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id: { type: string, format: uuid }
+                          name: { type: string }
+                          workspaceId: { type: [string, 'null'], format: uuid }
+                          quotaMonthlyRequests: { type: integer }
+                          usedThisMonth: { type: integer }
+                          remaining: { type: integer }
+                          scopes: { type: array, items: { type: string } }
+                          environment: { type: string, const: SANDBOX }
+        default: { $ref: '#/components/responses/ApiError' }
+  /api/v1/oauth/token:
+    post:
+      tags: [OAuth]
+      summary: Exchange an authorization code or refresh token
+      description: |
+        RFC 6749 token endpoint. Supports `authorization_code` (with mandatory
+        PKCE S256) and `refresh_token` (with rotation) grants. Confidential
+        clients authenticate via HTTP Basic or a body `client_secret`.
+        Accepts form-encoded or JSON bodies.
+      operationId: oauthToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [grant_type]
+              properties:
+                grant_type: { type: string, enum: [authorization_code, refresh_token] }
+                code: { type: string }
+                redirect_uri: { type: string, format: uri }
+                client_id: { type: string }
+                client_secret: { type: string }
+                code_verifier: { type: string }
+                refresh_token: { type: string }
+          application/json:
+            schema:
+              type: object
+              required: [grant_type]
+              properties:
+                grant_type: { type: string, enum: [authorization_code, refresh_token] }
+                code: { type: string }
+                redirect_uri: { type: string, format: uri }
+                client_id: { type: string }
+                client_secret: { type: string }
+                code_verifier: { type: string }
+                refresh_token: { type: string }
+      responses:
+        '200':
+          description: Token issued (or refreshed and rotated).
+          headers:
+            cache-control: { schema: { type: string }, description: 'no-store' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+                  token_type: { type: string, const: Bearer }
+                  expires_in: { type: integer }
+                  refresh_token: { type: [string, 'null'] }
+                  scope: { type: string }
+        '400': { description: invalid_request, invalid_grant, unsupported_grant_type or invalid_scope. }
+        '401': { description: invalid_client. }
+  /api/v1/oauth/revoke:
+    post:
+      tags: [OAuth]
+      summary: Revoke an access or refresh token (RFC 7009)
+      description: Responds 200 even when the token is unknown (no information leak).
+      operationId: oauthRevoke
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+                client_id: { type: string }
+      responses:
+        '200': { description: Revocation processed. }
+        '400': { description: token parameter missing. }
+  /oauth/authorize:
+    get:
+      tags: [OAuth]
+      summary: Authorization consent page (HTML)
+      description: Browser-facing consent screen; redirects signed-in users to login first. Not a JSON endpoint.
+      operationId: oauthAuthorizePage
+      security: []
+      parameters:
+        - name: client_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: redirect_uri
+          in: query
+          required: true
+          schema: { type: string, format: uri }
+        - name: response_type
+          in: query
+          required: true
+          schema: { type: string, const: code }
+        - name: scope
+          in: query
+          required: true
+          schema: { type: string }
+        - name: state
+          in: query
+          schema: { type: string }
+        - name: code_challenge
+          in: query
+          required: true
+          schema: { type: string }
+        - name: code_challenge_method
+          in: query
+          required: true
+          schema: { type: string, const: S256 }
+      responses:
+        '200': { description: HTML consent page. }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 'nova_sk_… API key, service-account secret, nova_at_… OAuth access token, or nova_sb_… sandbox key.'
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string, format: uuid }
+      description: Opaque cursor (the previous page's last item id).
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    Envelope:
+      type: object
+      required: [data, requestId]
+      properties:
+        requestId: { type: string, description: Echoed in the x-request-id header. }
+    Page:
+      type: object
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items: { type: array, items: {} }
+            nextCursor: { type: [string, 'null'], format: uuid }
+    WebhookEventType:
+      type: string
+      enum: [project.created, project.updated, website.published, deployment.completed, deployment.failed, order.paid, order.refunded, ai.credits.low, workspace.member.invited]
+    ApiErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code:
+              type: string
+              enum: [AUTH_REQUIRED, INVALID_CREDENTIAL, EXPIRED_CREDENTIAL, CREDENTIAL_REVOKED, INSUFFICIENT_SCOPE, FORBIDDEN, NOT_FOUND, INVALID_REQUEST, VALIDATION_ERROR, CONFLICT, IDEMPOTENCY_CONFLICT, RESOURCE_LOCKED, RATE_LIMITED, QUOTA_EXCEEDED, CONCURRENCY_LIMITED, SANDBOX_ONLY]
+            message: { type: string }
+            requestId: { type: string }
+  responses:
+    ApiError:
+      description: Structured error envelope with an x-request-id header.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiErrorBody' }

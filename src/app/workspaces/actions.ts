@@ -7,6 +7,7 @@ import { requireUser, csrfCheck } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { normalizeWorkspaceSlug, requireWorkspaceAccess } from '@/lib/workspaces';
 import { WorkspaceMemberRole } from '@prisma/client';
+import { emitWebhookEventSafely } from '@/lib/webhooks/events';
 
 export async function createOrganization(formData: FormData): Promise<void> {
   const user = await requireUser();
@@ -40,5 +41,6 @@ export async function inviteWorkspaceMember(formData: FormData) {
   const token = crypto.randomBytes(32).toString('hex');
   await prisma.workspaceInvitation.create({ data: { workspaceId: access.workspace.id, email, role, tokenHash: crypto.createHash('sha256').update(token).digest('hex'), invitedById: access.user.id, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } });
   await prisma.workspaceAuditLog.create({ data: { workspaceId: access.workspace.id, actorId: access.user.id, action: 'MEMBER_INVITED', resource: 'WorkspaceInvitation', metadata: { email, role } } });
+  emitWebhookEventSafely(access.workspace.id, 'workspace.member.invited', { email, role, workspace: { id: access.workspace.id, name: access.workspace.name } });
   revalidatePath(`/workspaces/${slug}/members`);
 }
