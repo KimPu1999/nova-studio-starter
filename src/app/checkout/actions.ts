@@ -7,6 +7,7 @@ import {checkoutSchema} from '@/lib/validation';
 
 export async function createOrder(_prev:{error?:string},formData:FormData){
   const user=await requireUser(); await csrfCheck();
+  if(String(formData.get('termsAccepted')||'')!=='true')return {error:'Please accept the order terms before continuing.'};
   const parsed=checkoutSchema.safeParse({customerName:String(formData.get('customerName')||''),customerEmail:String(formData.get('customerEmail')||''),customerPhone:String(formData.get('customerPhone')||''),paymentMethodId:String(formData.get('paymentMethodId')||''),orderNotes:String(formData.get('orderNotes')||'')||undefined,couponCode:String(formData.get('couponCode')||'')||undefined,idempotencyKey:String(formData.get('idempotencyKey')||'')});
   if(!parsed.success)return {error:'Please complete every checkout field.'};
   const existing=await prisma.order.findUnique({where:{userId_idempotencyKey:{userId:user.id,idempotencyKey:parsed.data.idempotencyKey}}});if(existing)redirect(`/checkout/${existing.id}`);
