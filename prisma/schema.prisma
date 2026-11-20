@@ -158,6 +158,7 @@ enum PaymentSubmissionStatus {
   APPROVED
   PUBLISHED
   REJECTED
+  NEEDS_RESUBMISSION
 }
 
 enum LicenseStatus {
@@ -427,6 +428,7 @@ model User {
   orders                        Order[]
   paymentSubmissions            PaymentSubmission[]
   paymentReviews                PaymentReview[]
+  paymentReviewEvents           PaymentReviewEvent[]       @relation("PaymentReviewEventActor")
   downloadEntitlements          DownloadEntitlement[]
   downloadEvents                DownloadEvent[]
   passwordResetTokens           PasswordResetToken[]
@@ -1319,14 +1321,21 @@ model PaymentSubmission {
   amountMmk            Int
   currency             String                  @default("MMK")
   transactionReference String
+  transferDate         DateTime?
+  senderName           String?
+  senderAccountIdentifier String?
+  customerNotes        String?
   proofStorageKey      String
   proofMimeType        String
+  proofFileSize        Int
   status               PaymentSubmissionStatus @default(PENDING)
   idempotencyKey       String                  @unique
   order                Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   paymentMethod        PaymentMethod           @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
   submittedBy          User                    @relation(fields: [submittedById], references: [id], onDelete: Restrict)
   review               PaymentReview?
+  reviewEvents         PaymentReviewEvent[]
+  submittedAt          DateTime                @default(now())
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
 
@@ -1346,6 +1355,22 @@ model PaymentReview {
   reviewer        User                    @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
 
   @@index([reviewerId, reviewedAt])
+}
+
+model PaymentReviewEvent {
+  id             String                  @id @default(uuid()) @db.Uuid
+  submissionId   String                  @db.Uuid
+  actorId        String?                 @db.Uuid
+  action         String
+  previousStatus PaymentSubmissionStatus?
+  nextStatus     PaymentSubmissionStatus
+  reason         String?
+  createdAt      DateTime                @default(now())
+  submission     PaymentSubmission       @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  actor          User?                   @relation("PaymentReviewEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([submissionId, createdAt])
+  @@index([actorId, createdAt])
 }
 
 model DownloadEntitlement {
