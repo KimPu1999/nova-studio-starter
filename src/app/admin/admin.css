@@ -13,14 +13,15 @@
 .admin-app-shell{
   display:grid;
   grid-template-columns:260px minmax(0,1fr);
+  height:100dvh;
   min-height:100dvh;
   min-width:0;
   overflow-x:clip;
+  overflow-y:hidden;
   background:#0b0b12;
 }
 .admin-app-shell .admin-sidebar{
-  position:sticky;
-  top:0;
+  position:relative;
   z-index:30;
   display:flex;
   width:auto;
@@ -33,6 +34,7 @@
   padding:28px 20px;
 }
 .admin-app-shell .admin-main{min-width:0;width:auto;min-height:100dvh}
+.admin-app-shell .admin-main{height:100dvh;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
 .admin-app-shell .admin-topbar{
   position:sticky;
   top:0;
@@ -77,7 +79,7 @@ html[data-admin-sidebar="collapsed"] .admin-app-shell .brand-mark{font-size:0}
 html[data-admin-sidebar="collapsed"] .admin-app-shell .brand-symbol{font-size:1.25rem}
 @media(max-width:1100px){.admin-app-shell .admin-content{padding-inline:24px}}
 @media(max-width:768px){
-  .admin-app-shell{display:block;overflow-x:clip}
+  .admin-app-shell{display:block;height:100dvh;overflow-x:clip;overflow-y:hidden}
   .admin-app-shell .admin-sidebar{position:fixed;inset:0 auto 0 0;z-index:60;width:min(86vw,300px);height:100dvh;min-height:100dvh;transform:translateX(-105%);transition:transform .22s ease;padding:20px;box-shadow:18px 0 50px #0008}
   .admin-app-shell .admin-sidebar.is-open{transform:translateX(0)}
   .admin-app-shell .admin-sidebar-header{display:flex!important}
@@ -86,6 +88,7 @@ html[data-admin-sidebar="collapsed"] .admin-app-shell .brand-symbol{font-size:1.
   .admin-app-shell .admin-sidebar-footer{display:block!important;margin-top:auto}
   .admin-app-shell .admin-sidebar-close{display:grid;place-items:center}
   .admin-app-shell .admin-sidebar-backdrop.is-visible{display:block;position:fixed;inset:0;z-index:50;background:#05050acc;backdrop-filter:blur(2px)}
+  .admin-app-shell .admin-main{height:100dvh;min-height:0}
   .admin-app-shell .admin-topbar{min-height:60px;padding:14px 16px}
   .admin-app-shell .admin-menu-button{display:inline-flex}
   .admin-app-shell .admin-sidebar-toggle{display:none}
