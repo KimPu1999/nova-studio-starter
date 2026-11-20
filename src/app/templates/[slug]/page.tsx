@@ -16,7 +16,7 @@ export default async function Detail({params}:Props){
   const {slug}=await params;
   const p=await getPublishedProduct(slug);
   if(!p)notFound();
-  const dbTemplate=databaseConfigured?await prisma.template.findUnique({where:{slug,status:'PUBLISHED'},include:{category:true,detail:true,features:{orderBy:{sortOrder:'asc'}},screenshots:{orderBy:{sortOrder:'asc'}},images:{orderBy:{sortOrder:'asc'}},documentation:{select:{isPublished:true,accessLevel:true}},designSettings:true,licensePrices:{where:{isActive:true,licenseType:{isActive:true}},include:{licenseType:true},orderBy:{priceMmk:'asc'}},versions:{where:{status:'PUBLISHED'},include:{files:true},orderBy:{releaseDate:'desc'}},reviews:{where:{status:'ACTIVE'},include:{customer:true},orderBy:{createdAt:'desc'},take:10}}}):null;
+  const dbTemplate=databaseConfigured?await prisma.template.findUnique({where:{slug,status:'PUBLISHED'},include:{category:true,detail:true,features:{orderBy:{sortOrder:'asc'}},screenshots:{orderBy:{sortOrder:'asc'}},images:{orderBy:{sortOrder:'asc'}},documentation:{select:{isPublished:true,accessLevel:true}},pdfFiles:{where:{isVisible:true},select:{id:true,accessLevel:true}},designSettings:true,licensePrices:{where:{isActive:true,licenseType:{isActive:true}},include:{licenseType:true},orderBy:{priceMmk:'asc'}},versions:{where:{status:'PUBLISHED'},include:{files:true},orderBy:{releaseDate:'desc'}},reviews:{where:{status:'ACTIVE'},include:{customer:true},orderBy:{createdAt:'desc'},take:10}}}):null;
   const user=await currentUser();
   const guestId=user?null:await getGuestId(false);
   const wished=dbTemplate?await prisma.wishlistItem.findFirst({where:{productId:dbTemplate.id,...(user?{customerId:user.id}:guestId?{guestId}:{id:'00000000-0000-0000-0000-000000000000'})}}):null;
@@ -28,7 +28,7 @@ export default async function Detail({params}:Props){
   const featureLabels=dbTemplate?.features.length?dbTemplate.features.map(feature=>feature.label):p.features;
   const settings=dbTemplate?.designSettings;
   const pageStyle={'--template-page-bg':settings?.pageBackground||'#0B0D14','--template-card-bg':settings?.cardBackground||'#151722','--template-accent':settings?.accentColor||'#7967F4','--template-heading':settings?.headingColor||'#F8F9FC','--template-body':settings?.bodyColor||'#A6A7BA','--template-content-width':settings?.contentWidth||'1180px','--template-radius':settings?.borderRadius||'24px'} as React.CSSProperties;
-  const docsAvailable=Boolean(settings?.showDocumentation!==false&&dbTemplate?.documentation?.isPublished);
+  const docsAvailable=Boolean(settings?.showDocumentation!==false&&(dbTemplate?.documentation?.isPublished||dbTemplate?.pdfFiles.length));
   return <main className="template-detail-page page-pad" style={pageStyle}>
     <div className="template-detail-container container-wide">
       <Link href="/templates" className="template-detail-back"><ArrowLeft size={16}/> All templates</Link>

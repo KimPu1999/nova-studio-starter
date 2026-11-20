@@ -21,7 +21,7 @@ export function PostEditor({post,categories,tags,users}:{post?:PostWithTags;cate
   const content=post?.content as Content|undefined;
   const body=content?.blocks?.map(blockToText).join('\n\n')||'';
   const design=content?.design;
-  return <form action={savePost} encType="multipart/form-data" className="admin-panel space-y-5">
+  return <form action={savePost} className="admin-panel space-y-5">
     <input type="hidden" name="id" value={post?.id||''}/>
     <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-400">Blank lines separate blocks. Use headings, quotes, lists, fenced code, or <code>![alt text](image-url)</code> to place images in the authored order.</p>{post&&<Link className="btn-outline" target="_blank" href={`/blog/${post.slug}?preview=1`}>Preview ↗</Link>}</div>
     <div className="grid gap-5 md:grid-cols-2"><label>Title *<input className="form-input" name="title" defaultValue={post?.title||''} required/></label><label>Slug *<input className="form-input" name="slug" defaultValue={post?.slug||''} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required/></label></div>

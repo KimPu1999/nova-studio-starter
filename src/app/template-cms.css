@@ -90,6 +90,7 @@
 .template-doc-pdf-card strong,.template-doc-pdf-card span{display:block}
 .template-doc-pdf-card span{margin-top:5px;color:#85879b;font-size:.76rem}
 .template-doc-pdf-locked{display:inline-flex!important;align-items:center;gap:6px;color:#9e9caf!important;white-space:nowrap}
+.template-docs-notice{margin-top:38px;border:1px solid #7967f455;border-radius:16px;background:#7967f40d;padding:18px 20px;color:#b8b6c8}
 .template-docs-locked{display:flex;align-items:center;gap:17px;max-width:650px;margin-top:60px;border:1px solid #fbbf2433;border-radius:18px;background:#fbbf2409;padding:24px;color:#d7ccae}
 .template-docs-locked h2{color:#fff;font-size:1.3rem}
 .template-docs-locked p{margin-top:7px;color:#a6a7ba;font-size:.86rem}

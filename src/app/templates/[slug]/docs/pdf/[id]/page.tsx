@@ -4,7 +4,7 @@ import {notFound} from 'next/navigation';
 import {databaseConfigured,prisma} from '@/lib/prisma';
 import {currentUser} from '@/lib/auth';
 import {canAccessTemplatePdf} from '@/lib/template-access';
-import {PdfReader} from '@/components/pdf-reader';
+import {PdfReader} from '@/components/pdf-reader-client';
 
 export const dynamic='force-dynamic';
 

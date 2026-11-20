@@ -26,7 +26,7 @@ export function TemplateCmsForm({template,categories}:Props){
   const updateSection=(index:number,key:keyof Section,value:string)=>setSections(current=>current.map((section,itemIndex)=>itemIndex===index?{...section,[key]:value}:section));
   const removeSection=(index:number)=>setSections(current=>current.filter((_,itemIndex)=>itemIndex!==index));
   const moveSection=(index:number,direction:-1|1)=>setSections(current=>{const nextIndex=index+direction;if(nextIndex<0||nextIndex>=current.length)return current;const next=[...current];[next[index],next[nextIndex]]=[next[nextIndex],next[index]];return next;});
-  return <form action={saveTemplateCms} encType="multipart/form-data" className="template-cms-form">
+  return <form action={saveTemplateCms} className="template-cms-form">
     <input type="hidden" name="id" value={template?.id||''}/>
     <input type="hidden" name="sectionsJson" value={sectionsJson}/>
     <div className="template-cms-tabs" role="tablist" aria-label="Template editor tabs">
@@ -34,7 +34,7 @@ export function TemplateCmsForm({template,categories}:Props){
       {template&&<a href="#template-pdf-documents" className="template-cms-tab-link">PDF documents <ArrowUpRight size={14}/></a>}
     </div>
 
-    {tab==='basic'&&<section className="template-cms-panel" role="tabpanel">
+    <section className="template-cms-panel" role="tabpanel" hidden={tab!=='basic'}>
       <div className="template-cms-panel-heading"><div><p className="eyebrow">TAB 01</p><h2>Basic details</h2><p>Control the public template profile and project information.</p></div></div>
       <div className="template-cms-grid">
         <label>Name<input className="form-input" name="name" defaultValue={template?.name||''} required/></label>
@@ -50,22 +50,22 @@ export function TemplateCmsForm({template,categories}:Props){
         <label className="template-cms-wide">Requirements <span className="template-cms-help">one per line</span><textarea className="form-input min-h-28" name="requirementsText" defaultValue={template?.detail?.requirements.join('\n')||''}/></label>
         <label className="template-cms-wide">Demo URL<input className="form-input" name="demoUrl" type="url" defaultValue={template?.demoUrl||''}/></label>
         <label className="template-cms-wide">Thumbnail URL<input className="form-input" name="thumbnailUrl" type="url" defaultValue={template?.thumbnailUrl||''}/></label>
-        <label className="template-cms-wide">Private product ZIP <span className="template-cms-help">ZIP, max 100 MB</span><input className="form-input" type="file" name="sourceFile" accept=".zip,application/zip"/></label>
+        <label className="template-cms-wide">Private product ZIP <span className="template-cms-help">ZIP, max 100 MB</span><input className="form-input" type="file" name="sourceFile" accept=".zip,application/zip"/>{template?.sourceFileName&&<small className="template-cms-help">Current file: {template.sourceFileName}{template.sourceFileSize?` · ${(template.sourceFileSize/1024/1024).toFixed(2)} MB`:''}</small>}</label>
         <label className="template-cms-wide">Responsive screenshots <span className="template-cms-help">PNG, JPG, or WEBP, max 8 MB each</span><input className="form-input" type="file" name="screenshotFiles" accept="image/png,image/jpeg,image/webp" multiple/></label>
         {template?.screenshots.length?<div className="template-cms-wide template-cms-screenshot-list">{template.screenshots.map(screenshot=><label className="template-cms-screenshot" key={screenshot.id}><img src={'/api/templates/'+template.id+'/screenshots/'+screenshot.id} alt={screenshot.altText||screenshot.originalFileName}/><span><input type="checkbox" name="removeScreenshotId" value={screenshot.id}/> Remove {screenshot.originalFileName}</span></label>)}</div>:null}
         <label className="template-cms-wide">Project features <span className="template-cms-help">one feature per line</span><textarea className="form-input min-h-32" name="featuresText" defaultValue={template?.features.map(feature=>feature.label).join('\n')||''} placeholder="Responsive layouts\nReusable components\nProduction-ready structure"/></label>
       </div>
-    </section>}
+    </section>
 
-    {tab==='documentation'&&<section className="template-cms-panel" role="tabpanel">
+    <section className="template-cms-panel" role="tabpanel" hidden={tab!=='documentation'}>
       <div className="template-cms-panel-heading"><div><p className="eyebrow">TAB 02</p><h2>Documentation</h2><p>Build ordered sections with headings, lists, images, links, blockquotes and fenced code blocks.</p></div><button type="button" className="btn-outline" onClick={addSection}><Plus size={16}/> Add section</button></div>
       <div className="template-cms-help-box">Supported format: heading lines, list lines, blockquotes, image syntax, inline code, and fenced code blocks.</div>
       <div className="template-cms-sections">
         {sections.length?sections.map((section,index)=><article className="template-cms-section-editor" key={index}><div className="template-cms-section-top"><label>Section {index+1} title<input className="form-input" value={section.title} onChange={event=>updateSection(index,'title',event.target.value)} required/></label><div className="template-cms-section-actions"><button type="button" className="icon-button" onClick={()=>moveSection(index,-1)} disabled={index===0} aria-label="Move section up"><ArrowUp size={15}/></button><button type="button" className="icon-button" onClick={()=>moveSection(index,1)} disabled={index===sections.length-1} aria-label="Move section down"><ArrowDown size={15}/></button><button type="button" className="icon-button text-red-200" onClick={()=>removeSection(index)} aria-label="Remove section"><Trash2 size={16}/></button></div></div><label>Content<textarea className="form-input template-cms-doc-textarea" value={section.content} onChange={event=>updateSection(index,'content',event.target.value)} required/></label></article>):<div className="template-cms-empty">No documentation sections yet. Add the first section to make the documentation reader available.</div>}
       </div>
-    </section>}
+    </section>
 
-    {tab==='design'&&<section className="template-cms-panel" role="tabpanel">
+    <section className="template-cms-panel" role="tabpanel" hidden={tab!=='design'}>
       <div className="template-cms-panel-heading"><div><p className="eyebrow">TAB 03</p><h2>Design settings</h2><p>Set per-template presentation tokens used by the customer detail and docs pages.</p></div></div>
       <div className="template-cms-grid">
         {([['pageBackground','Page background'],['cardBackground','Card background'],['accentColor','Accent color'],['headingColor','Heading color'],['bodyColor','Body text color']] as const).map(([name,label])=><label key={name}>{label}<span className="template-cms-color-field"><input type="color" name={name} defaultValue={design[name]}/><input className="form-input" value={design[name]} readOnly/></span></label>)}
@@ -75,9 +75,9 @@ export function TemplateCmsForm({template,categories}:Props){
         <label>Border radius<select className="form-input" name="borderRadius" defaultValue={design.borderRadius}><option>16px</option><option>24px</option><option>32px</option></select></label>
         <label>Layout<select className="form-input" name="layout" defaultValue={design.layout}><option>premium</option><option>editorial</option><option>minimal</option></select></label>
       </div>
-    </section>}
+    </section>
 
-    {tab==='access'&&<section className="template-cms-panel" role="tabpanel">
+    <section className="template-cms-panel" role="tabpanel" hidden={tab!=='access'}>
       <div className="template-cms-panel-heading"><div><p className="eyebrow">TAB 04</p><h2>Access & publishing</h2><p>Keep documentation and product files behind the existing account and paid-license checks.</p></div></div>
       <div className="template-cms-grid">
         <label>Template status<select className="form-input" name="status" defaultValue={template?.status||'DRAFT'}><option>DRAFT</option><option>PUBLISHED</option><option>ARCHIVED</option></select></label>
@@ -86,7 +86,7 @@ export function TemplateCmsForm({template,categories}:Props){
         <label className="template-cms-check"><input type="checkbox" name="showDocumentation" value="true" defaultChecked={design.showDocumentation}/> Show documentation link</label>
         <label className="template-cms-check"><input type="checkbox" name="showScreenshots" value="true" defaultChecked={design.showScreenshots}/> Show screenshots</label>
       </div>
-    </section>}
+    </section>
 
     <div className="template-cms-submit"><button className="btn-primary">{template?'Save changes':'Create template'}</button>{template&&<a className="btn-outline" href={`/templates/${template.slug}`} target="_blank" rel="noreferrer">Preview public page <ArrowUpRight size={15}/></a>}</div>
   </form>;

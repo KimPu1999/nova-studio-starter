@@ -9,7 +9,7 @@ function size(bytes:number){return bytes<1024*1024?(bytes/1024).toFixed(0)+' KB'
 export function TemplatePdfManager({templateId,templateSlug,pdfs}:{templateId:string;templateSlug:string;pdfs:Pdf[]}){
   return <section id="template-pdf-documents" className="template-pdf-manager">
     <div className="template-cms-panel-heading"><div><p className="eyebrow">TAB 05</p><h2>PDF documents</h2><p>Private PDF files are served through an entitlement-checked route.</p></div></div>
-    <form action={uploadTemplatePdf} encType="multipart/form-data" className="template-pdf-upload">
+    <form action={uploadTemplatePdf} className="template-pdf-upload">
       <input type="hidden" name="templateId" value={templateId}/>
       <div className="template-cms-grid">
         <label>PDF file<input className="form-input" type="file" name="file" accept="application/pdf" required/></label>
