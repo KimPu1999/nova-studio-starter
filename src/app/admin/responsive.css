@@ -15,3 +15,4 @@
  .admin-topbar{z-index:25}
  .admin-content{padding-inline:16px}
 }
+.status-pending{background:#f59e0b1c;color:#fcd34d}.status-approved,.status-paid{background:#10b9811c;color:#6ee7b7}.status-needs_resubmission{background:#8b5cf61c;color:#c4b5fd}.status-rejected,.status-cancelled,.status-refunded{background:#ef44441c;color:#fda4af}
