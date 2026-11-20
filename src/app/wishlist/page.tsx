@@ -1,0 +1,15 @@
+import Link from 'next/link';
+import {Heart,ShoppingCart,Trash2} from 'lucide-react';
+import {currentUser} from '@/lib/auth';
+import {getGuestId} from '@/lib/cart';
+import {prisma} from '@/lib/prisma';
+import {money} from '@/lib/data';
+import {moveWishlistToCart,removeWishlist} from '@/app/account/wishlist/actions';
+export const dynamic='force-dynamic';
+
+export default async function Wishlist(){
+  const user=await currentUser();
+  const guestId=user?null:await getGuestId(false);
+  const items=await prisma.wishlistItem.findMany({where:user?{customerId:user.id,product:{status:'PUBLISHED'}}:guestId?{guestId,product:{status:'PUBLISHED'}}:{id:'00000000-0000-0000-0000-000000000000'},include:{product:{include:{category:true,licensePrices:{where:{isActive:true,licenseType:{isActive:true}},orderBy:{priceMmk:'asc'},take:1}}}},orderBy:{createdAt:'desc'}});
+  return <main className="commerce-page container-wide page-pad"><div className="commerce-eyebrow"><Heart size={15}/> SAVED TEMPLATES</div><h1 className="page-title">Your <span className="gradient-text">wishlist.</span></h1><p className="page-description">Keep the ideas you like close until you are ready to build.</p>{items.length?<div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{items.map(item=><article className="product-card overflow-hidden" key={item.id}><Link href={`/templates/${item.product.slug}`} className="product-art block h-48 overflow-hidden bg-gradient-to-br from-violet-700 via-fuchsia-800 to-slate-950">{item.product.thumbnailUrl?<img className="h-full w-full object-cover" src={item.product.thumbnailUrl} alt=""/>:<span className="flex h-full items-center justify-center text-4xl text-violet-200">{item.product.name.slice(0,1)}</span>}</Link><div className="p-5"><p className="eyebrow">{item.product.category.name}</p><Link href={`/templates/${item.product.slug}`}><h2 className="mt-2 text-xl font-semibold">{item.product.name}</h2></Link><p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-400">{item.product.description}</p><div className="mt-4 flex items-center justify-between"><span className="text-sm text-violet-200">{item.product.licensePrices[0]?money(item.product.licensePrices[0].priceMmk):'Unavailable'}</span><span className="text-xs text-slate-500">{item.product.status}</span></div><div className="mt-5 flex flex-wrap gap-2"><form action={moveWishlistToCart}><input type="hidden" name="productId" value={item.productId}/><button className="btn-primary"><ShoppingCart size={15}/> Add to cart</button></form><form action={removeWishlist}><input type="hidden" name="productId" value={item.productId}/><button className="icon-button" aria-label={`Remove ${item.product.name}`}><Trash2 size={16}/></button></form></div></div></article>)}</div>:<div className="commerce-empty mt-12"><Heart className="mx-auto text-violet-300"/><h2 className="mt-4 text-xl font-semibold">Your wishlist is empty.</h2><p className="mt-2 text-slate-400">Save a template now and come back when you are ready.</p><Link className="btn-primary mt-5 inline-flex" href="/templates">Continue exploring templates</Link></div>}</main>;
+}

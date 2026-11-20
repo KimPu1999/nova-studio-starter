@@ -1,0 +1,16 @@
+'use client';
+import Link from 'next/link';
+import {useMemo,useState,useTransition} from 'react';
+import {ArrowUpRight,Heart,ShoppingBag} from 'lucide-react';
+import {addToCart} from '@/app/cart/actions';
+import {addWishlist,removeWishlist} from '@/app/account/wishlist/actions';
+import {money} from '@/lib/data';
+
+type License={licenseTypeId:string;name:string;priceMmk:number;licenseTerms:string;allowedUsage:string};
+export function PurchaseActions({templateId,slug,licenses,initialWishlisted}:{templateId:string;slug:string;licenses:License[];initialWishlisted:boolean}){
+  const [selectedId,setSelectedId]=useState(licenses[0]?.licenseTypeId||'');const [wishlisted,setWishlisted]=useState(initialWishlisted);const [added,setAdded]=useState(false);const [message,setMessage]=useState('');const [pending,startTransition]=useTransition();
+  const selected=useMemo(()=>licenses.find(item=>item.licenseTypeId===selectedId)||licenses[0],[licenses,selectedId]);
+  const submitCart=()=>{setMessage('');const form=new FormData();form.set('templateId',templateId);form.set('licenseTypeId',selectedId);startTransition(async()=>{try{await addToCart(form);setAdded(true);window.dispatchEvent(new CustomEvent('nova:cart-updated'));}catch(error){setMessage(error instanceof Error?error.message:'Unable to add this template to your cart.');}})};
+  const toggleWishlist=()=>{setMessage('');const form=new FormData();form.set('productId',templateId);startTransition(async()=>{try{if(wishlisted)await removeWishlist(form);else await addWishlist(form);setWishlisted(value=>!value);window.dispatchEvent(new CustomEvent('nova:wishlist-updated'));}catch(error){setMessage(error instanceof Error?error.message:'Unable to update your wishlist.');}})};
+  return <div className="mt-8"><label className="form-label">Choose a license<select className="form-input" value={selectedId} onChange={event=>{setSelectedId(event.target.value);setAdded(false)}} disabled={pending}>{licenses.map(price=><option key={price.licenseTypeId} value={price.licenseTypeId}>{price.name} · {money(price.priceMmk)}</option>)}</select></label>{selected&&<><p className="mt-4 text-lg font-semibold text-violet-200">{money(selected.priceMmk)}</p><p className="mt-3 text-xs leading-5 text-slate-500">{selected.licenseTerms} {selected.allowedUsage}</p></>}{message&&<p className="mt-4 rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200" role="alert">{message}</p>}{added?<div className="mt-6 grid gap-2"><Link href="/cart" className="btn-primary flex w-full justify-center"><ShoppingBag size={17}/> View cart</Link><button className="btn-outline" onClick={()=>{window.dispatchEvent(new CustomEvent('nova:open-cart'))}}>Open cart drawer</button><Link href="/checkout" className="btn-outline flex w-full justify-center">Checkout</Link></div>:<button className="btn-primary mt-6 flex w-full justify-center" disabled={pending||!selectedId} onClick={submitCart}>{pending?'Adding…':'Add to cart'} <ArrowUpRight size={17}/></button>}<button className={`btn-outline mt-3 flex w-full justify-center ${wishlisted?'border-violet-400 bg-violet-400/10 text-violet-100':''}`} disabled={pending} onClick={toggleWishlist}><Heart size={16} fill={wishlisted?'currentColor':'none'}/>{wishlisted?'Saved to wishlist':'Save to wishlist'}</button></div>;
+}

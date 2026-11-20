@@ -1202,8 +1202,9 @@ model Session {
 
 model Cart {
   id        String     @id @default(uuid()) @db.Uuid
-  userId    String     @unique @db.Uuid
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?    @unique @db.Uuid
+  guestId   String?    @unique
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   items     CartItem[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
@@ -1540,14 +1541,17 @@ model CouponRedemption {
 
 model WishlistItem {
   id         String   @id @default(uuid()) @db.Uuid
-  customerId String   @db.Uuid
+  customerId String?  @db.Uuid
+  guestId    String?
   productId  String   @db.Uuid
-  customer   User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer   User?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
   product    Template @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
 
   @@unique([customerId, productId])
+  @@unique([guestId, productId])
   @@index([customerId, createdAt])
+  @@index([guestId, createdAt])
 }
 
 model ProductReview {

@@ -1,3 +1,10 @@
+import crypto from 'node:crypto';
+import {cookies} from 'next/headers';
 import {prisma} from './prisma';
+
+export const GUEST_COOKIE='nova_guest_id';
+export async function getGuestId(create=false){const store=await cookies();let id=store.get(GUEST_COOKIE)?.value;if(!id&&create){id=crypto.randomUUID();store.set(GUEST_COOKIE,id,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:60*60*24*180});}return id||null;}
 export async function getCart(userId:string){return prisma.cart.findUnique({where:{userId},include:{items:{include:{template:{include:{category:true}}},orderBy:{createdAt:'asc'}}}})}
+export async function getCartForIdentity(identity:{userId?:string|null;guestId?:string|null}){if(identity.userId)return getCart(identity.userId);if(identity.guestId)return prisma.cart.findUnique({where:{guestId:identity.guestId},include:{items:{include:{template:{include:{category:true}}},orderBy:{createdAt:'asc'}}}});return null;}
 export async function getOrCreateCart(userId:string){return prisma.cart.upsert({where:{userId},update:{},create:{userId},include:{items:true}})}
+export async function mergeGuestCommerce(guestId:string,userId:string){await prisma.$transaction(async tx=>{const guestCart=await tx.cart.findUnique({where:{guestId},include:{items:true}});const userCart=await tx.cart.upsert({where:{userId},update:{},create:{userId}});if(guestCart){for(const item of guestCart.items)await tx.cartItem.upsert({where:{cartId_templateId:{cartId:userCart.id,templateId:item.templateId}},update:{licenseTypeId:item.licenseTypeId},create:{cartId:userCart.id,templateId:item.templateId,licenseTypeId:item.licenseTypeId}});await tx.cart.delete({where:{id:guestCart.id}});}const guestWishlist=await tx.wishlistItem.findMany({where:{guestId}});for(const item of guestWishlist){await tx.wishlistItem.upsert({where:{customerId_productId:{customerId:userId,productId:item.productId}},update:{},create:{customerId:userId,productId:item.productId}});await tx.wishlistItem.delete({where:{id:item.id}});}})}
