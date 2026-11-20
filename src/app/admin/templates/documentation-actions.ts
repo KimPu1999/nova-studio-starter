@@ -1,4 +1,5 @@
 'use server';
+import {invalidateCatalogCache} from '@/lib/catalog';
 
 import {revalidatePath} from 'next/cache';
 import {redirect} from 'next/navigation';
@@ -108,7 +109,7 @@ export async function saveTemplateCms(formData:FormData){
   revalidatePath('/admin');
   revalidatePath('/admin/templates');
   revalidatePath('/admin/templates/'+template.id+'/edit');
-  revalidatePath('/templates');
+  revalidatePath('/templates');invalidateCatalogCache();
   revalidatePath('/templates/'+template.slug);
   revalidatePath('/templates/'+template.slug+'/docs');
   redirect('/admin/templates/'+template.id+'/edit?saved=1');
@@ -127,7 +128,7 @@ export async function uploadTemplatePdf(formData:FormData){
   const pdf=await prisma.templatePdfFile.create({data:{templateId,title:text(formData,'title')||safeName(file.name),description:text(formData,'description')||null,storageKey:await putPrivateFile(bytes,'pdf'),originalFileName:safeName(file.name),mimeType:'application/pdf',fileSize:file.size,version:text(formData,'version')||null,sortOrder:Number(text(formData,'sortOrder'))||0,accessLevel,downloadEnabled:bool(formData,'downloadEnabled'),isVisible:true}});
   await prisma.auditLog.create({data:{userId:user.id,action:'CREATE',entity:'TemplatePdfFile',entityId:pdf.id}});
   revalidatePath('/admin/templates/'+templateId+'/edit');
-  revalidatePath('/templates');
+  revalidatePath('/templates');invalidateCatalogCache();
 }
 
 export async function updateTemplatePdf(formData:FormData){
@@ -138,7 +139,7 @@ export async function updateTemplatePdf(formData:FormData){
   const pdf=await prisma.templatePdfFile.update({where:{id},data:{title:text(formData,'title'),description:text(formData,'description')||null,version:text(formData,'version')||null,sortOrder:Number(text(formData,'sortOrder'))||0,accessLevel,downloadEnabled:bool(formData,'downloadEnabled'),isVisible:bool(formData,'isVisible')}});
   await prisma.auditLog.create({data:{userId:user.id,action:'UPDATE',entity:'TemplatePdfFile',entityId:id}});
   revalidatePath('/admin/templates/'+pdf.templateId+'/edit');
-  revalidatePath('/templates');
+  revalidatePath('/templates');invalidateCatalogCache();
 }
 
 export async function deleteTemplatePdf(formData:FormData){

@@ -34,7 +34,7 @@ export default async function Detail({params}:Props){
       <Link href="/templates" className="template-detail-back"><ArrowLeft size={16}/> All templates</Link>
       <div className="template-detail-hero">
         <div className="template-detail-gallery">
-          <div className="template-detail-cover">{imageUrl?<img src={imageUrl} alt={p.name+' featured image'}/>:<div className={'product-art relative flex h-full items-center justify-center rounded-3xl bg-gradient-to-br '+p.gradient}><div className="art-grid"/><div className="mock-browser scale-125"><div className="mock-dots"><i/><i/><i/></div><div className="mock-layout"><div className="mock-bar"/><div className="mock-title"/><div className="mock-line"/><div className="mock-tiles"><i/><i/><i/></div></div></div></div>}</div>
+          <div className="template-detail-cover">{imageUrl?<img loading="eager" decoding="async" src={imageUrl} alt={p.name+' featured image'}/>:<div className={'product-art relative flex h-full items-center justify-center rounded-3xl bg-gradient-to-br '+p.gradient}><div className="art-grid"/><div className="mock-browser scale-125"><div className="mock-dots"><i/><i/><i/></div><div className="mock-layout"><div className="mock-bar"/><div className="mock-title"/><div className="mock-line"/><div className="mock-tiles"><i/><i/><i/></div></div></div></div>}</div>
           {(dbTemplate?.screenshots.length||dbTemplate?.images.length)&&settings?.showScreenshots!==false?<div className="template-detail-screenshots">{dbTemplate?.screenshots.map(screenshot=><img key={screenshot.id} src={'/api/templates/'+dbTemplate.id+'/screenshots/'+screenshot.id} alt={screenshot.altText||p.name+' screenshot'}/>)}{dbTemplate?.images.map(image=><img key={image.id} src={image.url} alt={image.altText||p.name+' screenshot'}/>)}</div>:null}
         </div>
         <aside className="template-detail-purchase panel">
@@ -67,7 +67,7 @@ export default async function Detail({params}:Props){
         </aside>
       </div>
 
-      {relatedTemplates.length?<section className="template-related"><div className="template-detail-section-heading"><div><p className="eyebrow">KEEP EXPLORING</p><h2>Related templates</h2></div><Link className="text-link" href="/templates">View all <ArrowUpRight size={15}/></Link></div><div className="template-related-grid">{relatedTemplates.map(item=><Link className="template-related-card" href={'/templates/'+item.slug} key={item.slug}>{item.thumbnailUrl?<img src={item.thumbnailUrl} alt={item.name}/>:<div className="template-related-art"/>}<span>{item.category}</span><strong>{item.name}</strong><p>{item.description}</p></Link>)}</div></section>:null}
+      {relatedTemplates.length?<section className="template-related"><div className="template-detail-section-heading"><div><p className="eyebrow">KEEP EXPLORING</p><h2>Related templates</h2></div><Link className="text-link" href="/templates">View all <ArrowUpRight size={15}/></Link></div><div className="template-related-grid">{relatedTemplates.map(item=><Link className="template-related-card" href={'/templates/'+item.slug} key={item.slug}>{item.thumbnailUrl?<img loading="lazy" decoding="async" src={item.thumbnailUrl} alt={item.name}/>:<div className="template-related-art"/>}<span>{item.category}</span><strong>{item.name}</strong><p>{item.description}</p></Link>)}</div></section>:null}
     </div>
   </main>;
 }
