@@ -1,7 +1,7 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import './commerce.css';
-import './request-project.css';
+import './request-project.css';import './blog/blog.css';
 import './layout-fixes.css';
 import {Header} from '@/components/header';
 import {Footer} from '@/components/footer';

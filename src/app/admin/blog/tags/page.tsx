@@ -1,0 +1,5 @@
+import {saveTag,deleteTag} from '../actions';
+import {prisma} from '@/lib/prisma';
+import {requireCmsEditor} from '@/lib/auth';
+export const dynamic='force-dynamic';
+export default async function Tags(){await requireCmsEditor();const tags=await prisma.blogTag.findMany({include:{_count:{select:{posts:true}}},orderBy:{name:'asc'}});return <main className="admin-content"><p className="eyebrow">BLOG TAXONOMY</p><h1 className="admin-title">Tags</h1><form action={saveTag} className="admin-panel mt-8 grid gap-4 md:grid-cols-[1fr_1fr_auto]"><input className="form-input" name="name" placeholder="Tag name" required/><input className="form-input" name="slug" placeholder="tag-slug" pattern="[a-z0-9-]+" required/><button className="btn-primary">Add tag</button></form><div className="mt-5 space-y-3">{tags.map(tag=><div className="admin-panel flex items-center justify-between gap-4" key={tag.id}><div><strong>{tag.name}</strong><p className="text-xs text-slate-500">/{tag.slug} · {tag._count.posts} posts</p></div><form action={deleteTag}><input type="hidden" name="id" value={tag.id}/><button className="btn-outline text-red-300">Delete</button></form></div>)}</div></main>}
