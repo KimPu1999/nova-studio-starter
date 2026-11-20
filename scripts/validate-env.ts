@@ -1,3 +1,10 @@
+import {loadEnvConfig} from '@next/env';
+
+// `npm start` runs this standalone script before Next boots. Load the same
+// .env/.env.local files that Next uses so production validation checks the
+// actual application environment instead of only exported shell variables.
+loadEnvConfig(process.cwd());
+
 const production = process.env.NODE_ENV === 'production';
 
 const errors: string[] = [];
@@ -12,7 +19,8 @@ if (production) {
   } else {
     try {
       const url = new URL(process.env.PUBLIC_WEBSITE_URL);
-      if (url.protocol !== 'https:') errors.push('PUBLIC_WEBSITE_URL must use HTTPS in production.');
+      const localHost = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1';
+      if (url.protocol !== 'https:' && !localHost) errors.push('PUBLIC_WEBSITE_URL must use HTTPS in production.');
     } catch {
       errors.push('PUBLIC_WEBSITE_URL must be a valid URL.');
     }
