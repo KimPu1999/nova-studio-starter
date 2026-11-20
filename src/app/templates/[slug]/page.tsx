@@ -1,9 +1,8 @@
 import Link from 'next/link';
 import {notFound} from 'next/navigation';
 import type {Metadata} from 'next';
-import {ArrowLeft,Check,LockKeyhole,Star} from 'lucide-react';
-import {getPublishedProduct} from '@/lib/catalog';
-import {money} from '@/lib/data';
+import {ArrowLeft,ArrowUpRight,Check,Clock3,ExternalLink,LockKeyhole,Star} from 'lucide-react';
+import {getPublishedProduct,getPublishedProducts} from '@/lib/catalog';
 import {prisma,databaseConfigured} from '@/lib/prisma';
 import {currentUser} from '@/lib/auth';
 import {getGuestId} from '@/lib/cart';
@@ -14,9 +13,61 @@ export const dynamic='force-dynamic';
 export async function generateMetadata({params}:Props):Promise<Metadata>{const {slug}=await params;const product=await getPublishedProduct(slug);return {title:product?.name??'Template',description:product?.description};}
 
 export default async function Detail({params}:Props){
-  const {slug}=await params;const p=await getPublishedProduct(slug);if(!p)notFound();
-  const dbTemplate=databaseConfigured?await prisma.template.findUnique({where:{slug,status:'PUBLISHED'},include:{images:{orderBy:{sortOrder:'asc'}},licensePrices:{where:{isActive:true,licenseType:{isActive:true}},include:{licenseType:true},orderBy:{priceMmk:'asc'}},versions:{where:{status:'PUBLISHED'},include:{files:true},orderBy:{releaseDate:'desc'}},reviews:{where:{status:'ACTIVE'},include:{customer:true},orderBy:{createdAt:'desc'},take:10}}}):null;
-  const user=await currentUser();const guestId=user?null:await getGuestId(false);const wished=dbTemplate?await prisma.wishlistItem.findFirst({where:{productId:dbTemplate.id,...(user?{customerId:user.id}:guestId?{guestId}:{id:'00000000-0000-0000-0000-000000000000'})}}):null;
-  const reviews=dbTemplate?.reviews||[];const average=reviews.length?reviews.reduce((sum,review)=>sum+review.rating,0)/reviews.length:0;const imageUrl=dbTemplate?.images[0]?.url||dbTemplate?.thumbnailUrl||p.thumbnailUrl||null;
-  return <main className="container-wide page-pad"><Link href="/templates" className="mb-10 inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowLeft size={16}/> All templates</Link><div className="grid gap-10 lg:grid-cols-[1.25fr_.75fr]"><div><div className={`product-art relative flex min-h-[340px] items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-br ${p.gradient}`}>{imageUrl?<img className="absolute inset-0 h-full w-full object-cover" src={imageUrl} alt={`${p.name} preview`}/>:<><div className="art-grid"/><div className="mock-browser scale-125"><div className="mock-dots"><i/><i/><i/></div><div className="mock-layout"><div className="mock-bar"/><div className="mock-title"/><div className="mock-line"/><div className="mock-tiles"><i/><i/><i/></div></div></div></>}</div>{dbTemplate?.images.length&&<div className="mt-4 grid grid-cols-3 gap-3">{dbTemplate.images.map(image=><img className="aspect-video w-full rounded-xl border border-white/10 object-cover" key={image.id} src={image.url} alt={image.altText||p.name}/>)}</div>}<section className="mt-8"><h2 className="text-2xl font-bold">What's included</h2><div className="mt-5 grid gap-3 sm:grid-cols-2">{p.features.map(feature=><div className="flex items-center gap-3 rounded-xl border border-white/10 p-4 text-sm" key={feature}><Check size={16} className="text-violet-300"/>{feature}</div>)}</div></section><section className="mt-12"><div className="flex items-center justify-between"><h2 className="text-2xl font-bold">Version history</h2>{dbTemplate?.versions[0]&&<span className="text-sm text-slate-500">Latest v{dbTemplate.versions[0].versionNumber}</span>}</div>{dbTemplate?.versions.length?<div className="mt-5 space-y-3">{dbTemplate.versions.map(version=><div className="rounded-xl border border-white/10 p-4" key={version.id}><div className="flex justify-between"><b>v{version.versionNumber}</b><span className="text-xs text-slate-500">{version.releaseDate.toLocaleDateString()}</span></div><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-400">{version.changelog}</p></div>)}</div>:<p className="mt-4 text-sm text-slate-500">Version history will appear after the first release.</p>}</section><section className="mt-12"><div className="flex items-center gap-3"><h2 className="text-2xl font-bold">Reviews</h2><span className="text-sm text-amber-200"><Star size={15} className="inline"/> {average?average.toFixed(1):'New'} {reviews.length?`(${reviews.length})`:''}</span></div>{reviews.length?<div className="mt-5 space-y-4">{reviews.map(review=><article className="rounded-xl border border-white/10 p-5" key={review.id}><div className="flex justify-between"><b>{review.title}</b><span className="text-amber-200">{'★'.repeat(review.rating)}</span></div><p className="mt-1 text-xs text-slate-500">Verified purchase · {review.customer.name}</p><p className="mt-3 text-sm leading-6 text-slate-300">{review.content}</p></article>)}</div>:<p className="mt-4 text-sm text-slate-500">No reviews yet.</p>}</section></div><aside className="panel h-fit p-7 lg:sticky lg:top-28"><span className="eyebrow">{p.category}</span><h1 className="mt-4 text-4xl font-bold">{p.name}</h1><p className="mt-5 leading-7 text-slate-400">{p.description}</p><div className="mt-6 flex flex-wrap gap-2">{p.stack.map(stack=><span key={stack} className="tech-pill">{stack}</span>)}</div><div className="mt-6 flex items-center gap-2 text-sm text-emerald-200"><span className="h-2 w-2 rounded-full bg-emerald-400"/> Available for purchase</div>{dbTemplate?.licensePrices.length?<PurchaseActions templateId={dbTemplate.id} slug={p.slug} licenses={dbTemplate.licensePrices.map(price=>({licenseTypeId:price.licenseTypeId,name:price.licenseType.name,priceMmk:price.priceMmk,licenseTerms:price.licenseTerms,allowedUsage:price.allowedUsage}))} initialWishlisted={Boolean(wished)}/>:<Link href="/contact" className="btn-primary mt-6 flex w-full justify-center">Ask about this template</Link>}<div className="mt-7 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm leading-6 text-amber-100/80"><LockKeyhole className="mb-2" size={18}/> Manual payment verification is required before downloads and licenses are enabled.</div></aside></div></main>;
+  const {slug}=await params;
+  const p=await getPublishedProduct(slug);
+  if(!p)notFound();
+  const dbTemplate=databaseConfigured?await prisma.template.findUnique({where:{slug,status:'PUBLISHED'},include:{category:true,detail:true,features:{orderBy:{sortOrder:'asc'}},screenshots:{orderBy:{sortOrder:'asc'}},images:{orderBy:{sortOrder:'asc'}},documentation:{select:{isPublished:true,accessLevel:true}},designSettings:true,licensePrices:{where:{isActive:true,licenseType:{isActive:true}},include:{licenseType:true},orderBy:{priceMmk:'asc'}},versions:{where:{status:'PUBLISHED'},include:{files:true},orderBy:{releaseDate:'desc'}},reviews:{where:{status:'ACTIVE'},include:{customer:true},orderBy:{createdAt:'desc'},take:10}}}):null;
+  const user=await currentUser();
+  const guestId=user?null:await getGuestId(false);
+  const wished=dbTemplate?await prisma.wishlistItem.findFirst({where:{productId:dbTemplate.id,...(user?{customerId:user.id}:guestId?{guestId}:{id:'00000000-0000-0000-0000-000000000000'})}}):null;
+  const related=databaseConfigured?await getPublishedProducts():[];
+  const relatedTemplates=related.filter(item=>item.slug!==p.slug).slice(0,3);
+  const reviews=dbTemplate?.reviews||[];
+  const average=reviews.length?reviews.reduce((sum,review)=>sum+review.rating,0)/reviews.length:0;
+  const imageUrl=dbTemplate?.images[0]?.url||dbTemplate?.thumbnailUrl||p.thumbnailUrl||null;
+  const featureLabels=dbTemplate?.features.length?dbTemplate.features.map(feature=>feature.label):p.features;
+  const settings=dbTemplate?.designSettings;
+  const pageStyle={'--template-page-bg':settings?.pageBackground||'#0B0D14','--template-card-bg':settings?.cardBackground||'#151722','--template-accent':settings?.accentColor||'#7967F4','--template-heading':settings?.headingColor||'#F8F9FC','--template-body':settings?.bodyColor||'#A6A7BA','--template-content-width':settings?.contentWidth||'1180px','--template-radius':settings?.borderRadius||'24px'} as React.CSSProperties;
+  const docsAvailable=Boolean(settings?.showDocumentation!==false&&dbTemplate?.documentation?.isPublished);
+  return <main className="template-detail-page page-pad" style={pageStyle}>
+    <div className="template-detail-container container-wide">
+      <Link href="/templates" className="template-detail-back"><ArrowLeft size={16}/> All templates</Link>
+      <div className="template-detail-hero">
+        <div className="template-detail-gallery">
+          <div className="template-detail-cover">{imageUrl?<img src={imageUrl} alt={p.name+' featured image'}/>:<div className={'product-art relative flex h-full items-center justify-center rounded-3xl bg-gradient-to-br '+p.gradient}><div className="art-grid"/><div className="mock-browser scale-125"><div className="mock-dots"><i/><i/><i/></div><div className="mock-layout"><div className="mock-bar"/><div className="mock-title"/><div className="mock-line"/><div className="mock-tiles"><i/><i/><i/></div></div></div></div>}</div>
+          {(dbTemplate?.screenshots.length||dbTemplate?.images.length)&&settings?.showScreenshots!==false?<div className="template-detail-screenshots">{dbTemplate?.screenshots.map(screenshot=><img key={screenshot.id} src={'/api/templates/'+dbTemplate.id+'/screenshots/'+screenshot.id} alt={screenshot.altText||p.name+' screenshot'}/>)}{dbTemplate?.images.map(image=><img key={image.id} src={image.url} alt={image.altText||p.name+' screenshot'}/>)}</div>:null}
+        </div>
+        <aside className="template-detail-purchase panel">
+          <span className="eyebrow">{p.category}</span>
+          <h1>{p.name}</h1>
+          <p className="template-detail-short-description">{p.description}</p>
+          <div className="template-detail-stack">{p.stack.map(item=><span className="tech-pill" key={item}>{item}</span>)}</div>
+          <div className="template-detail-availability"><span/> Available for purchase</div>
+          {dbTemplate?.licensePrices.length?<PurchaseActions templateId={dbTemplate.id} slug={p.slug} licenses={dbTemplate.licensePrices.map(price=>({licenseTypeId:price.licenseTypeId,name:price.licenseType.name,priceMmk:price.priceMmk,licenseTerms:price.licenseTerms,allowedUsage:price.allowedUsage}))} initialWishlisted={Boolean(wished)}/>:<Link href="/contact" className="btn-primary mt-6 flex w-full justify-center">Ask about this template</Link>}
+          {p.demoUrl&&<a className="template-detail-preview" href={p.demoUrl} target="_blank" rel="noreferrer"><ExternalLink size={16}/> Live preview</a>}
+          <div className="template-detail-payment-note"><LockKeyhole size={17}/><span>Manual payment verification is required before downloads and licenses are enabled.</span></div>
+        </aside>
+      </div>
+
+      <div className="template-detail-body">
+        <div className="template-detail-main">
+          <section className="template-detail-section"><p className="eyebrow">THE PROJECT</p><h2>Built to move your next idea forward.</h2><p className="template-detail-long-copy">{dbTemplate?.detail?.fullDescription||p.description}</p></section>
+          <section className="template-detail-section"><p className="eyebrow">WHAT’S INCLUDED</p><h2>Everything you need to launch.</h2><div className="template-detail-features">{featureLabels.map(feature=><div key={feature}><Check size={17}/><span>{feature}</span></div>)}</div></section>
+          {dbTemplate?.detail?.requirements.length?<section className="template-detail-section"><p className="eyebrow">REQUIREMENTS</p><h2>Before you begin.</h2><ul className="template-detail-requirements">{dbTemplate.detail.requirements.map(requirement=><li key={requirement}>{requirement}</li>)}</ul></section>:null}
+          {docsAvailable&&<section className="template-detail-docs-cta"><div><p className="eyebrow">DOCUMENTATION</p><h2>Get from first install to first launch.</h2><p>Read the saved setup guide, configuration notes, usage examples, and reference files.</p></div><Link className="btn-outline" href={'/templates/'+p.slug+'/docs'}>Open documentation <ArrowUpRight size={16}/></Link></section>}
+          {dbTemplate?.versions.length?<section className="template-detail-section"><div className="template-detail-section-heading"><div><p className="eyebrow">RELEASES</p><h2>Version history</h2></div><span className="template-detail-muted">Latest v{dbTemplate.versions[0].versionNumber}</span></div><div className="template-detail-versions">{dbTemplate.versions.map(version=><article key={version.id}><div><strong>v{version.versionNumber}</strong><span>{version.releaseDate.toLocaleDateString()}</span></div><p>{version.changelog}</p></article>)}</div></section>:null}
+          {reviews.length?<section className="template-detail-section"><div className="template-detail-section-heading"><div><p className="eyebrow">CUSTOMER NOTES</p><h2>Reviews</h2></div><span className="template-detail-muted"><Star size={14}/> {average.toFixed(1)}</span></div><div className="template-detail-reviews">{reviews.map(review=><article key={review.id}><div><strong>{review.title}</strong><span className="text-amber-200">{'★'.repeat(review.rating)}</span></div><p>{review.content}</p><small>Verified purchase · {review.customer.name}</small></article>)}</div></section>:null}
+        </div>
+        <aside className="template-detail-meta">
+          <div><span>Category</span><strong>{p.category}</strong></div>
+          <div><span>Technology</span><strong>{p.stack.join(' · ')}</strong></div>
+          <div><span>Version</span><strong>{dbTemplate?.detail?.version||dbTemplate?.versions[0]?.versionNumber||'Latest release'}</strong></div>
+          <div><span>Release date</span><strong>{dbTemplate?.detail?.releaseDate?.toLocaleDateString()||'Regular updates'}</strong></div>
+          {docsAvailable&&<Link className="template-detail-meta-link" href={'/templates/'+p.slug+'/docs'}>Documentation <ArrowUpRight size={15}/></Link>}
+        </aside>
+      </div>
+
+      {relatedTemplates.length?<section className="template-related"><div className="template-detail-section-heading"><div><p className="eyebrow">KEEP EXPLORING</p><h2>Related templates</h2></div><Link className="text-link" href="/templates">View all <ArrowUpRight size={15}/></Link></div><div className="template-related-grid">{relatedTemplates.map(item=><Link className="template-related-card" href={'/templates/'+item.slug} key={item.slug}>{item.thumbnailUrl?<img src={item.thumbnailUrl} alt={item.name}/>:<div className="template-related-art"/>}<span>{item.category}</span><strong>{item.name}</strong><p>{item.description}</p></Link>)}</div></section>:null}
+    </div>
+  </main>;
 }

@@ -139,6 +139,12 @@ enum TemplateStatus {
   ARCHIVED
 }
 
+enum TemplateAccessLevel {
+  PUBLIC
+  AUTHENTICATED
+  PURCHASER
+}
+
 enum InquiryStatus {
   NEW
   IN_PROGRESS
@@ -871,6 +877,12 @@ model Template {
   category             Category              @relation(fields: [categoryId], references: [id])
   vendor               VendorProfile?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   images               TemplateImage[]
+  detail               TemplateDetail?
+  features             TemplateFeature[]
+  screenshots          TemplateScreenshot[]
+  documentation        TemplateDocumentation?
+  pdfFiles             TemplatePdfFile[]
+  designSettings       TemplateDesignSettings?
   cartItems            CartItem[]
   orderItems           OrderItem[]
   downloadEntitlements DownloadEntitlement[]
@@ -912,6 +924,112 @@ model TemplateImage {
   createdAt  DateTime @default(now())
 
   @@index([templateId, sortOrder])
+}
+
+model TemplateDetail {
+  id              String   @id @default(uuid()) @db.Uuid
+  templateId      String   @unique @db.Uuid
+  fullDescription String   @db.Text
+  requirements    String[] @default([])
+  version         String?
+  releaseDate     DateTime?
+  template        Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model TemplateFeature {
+  id         String   @id @default(uuid()) @db.Uuid
+  templateId String   @db.Uuid
+  label      String
+  sortOrder  Int      @default(0)
+  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([templateId, sortOrder])
+}
+
+model TemplateScreenshot {
+  id               String   @id @default(uuid()) @db.Uuid
+  templateId       String   @db.Uuid
+  storageKey       String
+  originalFileName String
+  mimeType         String
+  fileSize         Int
+  altText          String?
+  sortOrder        Int      @default(0)
+  template         Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+
+  @@index([templateId, sortOrder])
+}
+
+model TemplateDocumentation {
+  id          String                    @id @default(uuid()) @db.Uuid
+  templateId  String                    @unique @db.Uuid
+  accessLevel TemplateAccessLevel       @default(PUBLIC)
+  isPublished Boolean                   @default(false)
+  template    Template                  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  sections    TemplateDocumentSection[]
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+}
+
+model TemplateDocumentSection {
+  id              String                @id @default(uuid()) @db.Uuid
+  documentationId String                @db.Uuid
+  slug            String
+  title           String
+  content         String                @db.Text
+  sortOrder       Int                   @default(0)
+  documentation   TemplateDocumentation @relation(fields: [documentationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([documentationId, slug])
+  @@index([documentationId, sortOrder])
+}
+
+model TemplatePdfFile {
+  id               String              @id @default(uuid()) @db.Uuid
+  templateId       String              @db.Uuid
+  title            String
+  description      String?
+  storageKey       String
+  originalFileName String
+  mimeType         String
+  fileSize         Int
+  version          String?
+  sortOrder        Int                 @default(0)
+  accessLevel      TemplateAccessLevel @default(PURCHASER)
+  downloadEnabled  Boolean             @default(false)
+  isVisible        Boolean             @default(true)
+  template         Template            @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([templateId, sortOrder])
+  @@index([templateId, accessLevel, isVisible])
+}
+
+model TemplateDesignSettings {
+  id                String   @id @default(uuid()) @db.Uuid
+  templateId        String   @unique @db.Uuid
+  pageBackground    String   @default("#0B0D14")
+  cardBackground    String   @default("#151722")
+  accentColor       String   @default("#7967F4")
+  headingColor      String   @default("#F8F9FC")
+  bodyColor         String   @default("#A6A7BA")
+  contentWidth      String   @default("1180px")
+  imageAspectRatio  String   @default("16/9")
+  spacing           String   @default("comfortable")
+  borderRadius      String   @default("24px")
+  layout            String   @default("premium")
+  showDocumentation Boolean  @default(true)
+  showScreenshots   Boolean  @default(true)
+  template          Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model Service {

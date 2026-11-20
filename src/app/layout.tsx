@@ -3,6 +3,7 @@ import './globals.css';
 import './commerce.css';
 import './request-project.css';import './blog/blog.css';
 import './layout-fixes.css';
+import './template-cms.css';
 import {Header} from '@/components/header';
 import {Footer} from '@/components/footer';
 import {getAppearance,getBrand,getSiteSettings} from '@/lib/site-config';
