@@ -1,0 +1,11 @@
+/* Shared public dropdown and toggle treatment. Admin surfaces remain untouched. */
+body:not(:has(.admin-shell)) .sort-select,body:not(:has(.admin-shell)) .form-input,body:not(:has(.admin-shell)) select{border:1px solid rgba(255,255,255,.18);border-radius:12px;background:#171642;color:#F8FAFF;box-shadow:0 8px 24px rgba(0,0,0,.18);color-scheme:dark}
+body:not(:has(.admin-shell)) .sort-select:hover,body:not(:has(.admin-shell)) .form-input:hover,body:not(:has(.admin-shell)) select:hover{border-color:rgba(139,130,255,.55);background:#1d2050}
+body:not(:has(.admin-shell)) .sort-select:focus,body:not(:has(.admin-shell)) .form-input:focus,body:not(:has(.admin-shell)) select:focus{border-color:#8B82FF;outline:2px solid rgba(139,130,255,.2);outline-offset:2px}
+body:not(:has(.admin-shell)) .sort-select option,body:not(:has(.admin-shell)) select option{background:#171642;color:#F8FAFF}
+body:not(:has(.admin-shell)) .cycle-selector{display:inline-flex;gap:4px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(255,255,255,.07);padding:4px;box-shadow:0 8px 24px rgba(0,0,0,.16)}
+body:not(:has(.admin-shell)) .cycle-selector a{border-radius:999px;color:#A0ADC8;padding:9px 16px;font-size:.78rem;transition:background .2s,color .2s,box-shadow .2s}
+body:not(:has(.admin-shell)) .cycle-selector a:hover{background:rgba(255,255,255,.11);color:#F8FAFF}
+body:not(:has(.admin-shell)) .cycle-selector a.active{background:#8B82FF;color:#fff;box-shadow:0 5px 16px rgba(139,130,255,.3)}
+body:not(:has(.admin-shell)) .filter-pill{border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(255,255,255,.07);color:#C2CDE5}
+body:not(:has(.admin-shell)) .filter-pill:hover,body:not(:has(.admin-shell)) .filter-pill.filter-active{border-color:rgba(139,130,255,.55);background:rgba(139,130,255,.22);color:#F8FAFF}

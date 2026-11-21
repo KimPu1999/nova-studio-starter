@@ -1,0 +1,18 @@
+/* Keep the menu control mobile-only; desktop navigation stays explicit. */
+.glass-navbar .mobile-menu-trigger{display:none}
+.site-header.glass-navbar{position:fixed;z-index:100;isolation:isolate;visibility:visible;opacity:1}
+.site-header.glass-navbar nav{position:relative;z-index:1}
+.site-header.glass-navbar .nav-link{color:#C2CDE5;text-shadow:0 1px 10px rgba(8,13,30,.7)}
+.site-header.glass-navbar .nav-link:hover,.site-header.glass-navbar .nav-link.nav-active{color:#F8FAFF}
+.glass-navbar .project-cta{display:block}
+.glass-navbar .mobile-nav{position:absolute;top:100%;left:0;right:0;z-index:2;display:none;width:auto;max-height:calc(100vh - 88px);overflow-y:auto;flex-direction:column;gap:0;margin:0;border:1px solid rgba(255,255,255,.18);border-top:0;border-radius:0 0 22px 22px;background:rgba(8,13,30,.97);box-shadow:0 24px 55px rgba(0,0,0,.42);padding:12px 20px 22px;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.glass-navbar .mobile-nav a{display:block;border-bottom:1px solid rgba(255,255,255,.1);padding:14px 0;color:#F8FAFF;font-size:1rem;line-height:1.35}
+.glass-navbar .mobile-nav a:last-child{border-bottom:0}
+.glass-navbar .mobile-nav a:hover{color:#B8F5DA}
+.glass-navbar .project-cta .btn-primary{border:1px solid rgba(255,255,255,.18);background:#8B82FF;color:#fff;box-shadow:0 8px 24px rgba(139,130,255,.28);transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,transform .2s ease}
+.glass-navbar .project-cta .btn-primary:hover{background:#7469E8;border-color:rgba(184,245,218,.58);box-shadow:0 12px 30px rgba(93,227,242,.24),0 0 0 4px rgba(139,130,255,.14);transform:translateY(-2px)}
+.glass-navbar .project-cta .btn-primary:active{transform:translateY(0);box-shadow:0 6px 16px rgba(139,130,255,.2)}
+@media(max-width:1023px){.glass-navbar .mobile-menu-trigger{display:grid}.glass-navbar .mobile-nav{display:flex}}
+@media(max-width:520px){.glass-navbar .project-cta .btn-primary{min-height:40px;gap:5px;padding:9px 10px;font-size:.7rem}.glass-navbar .project-cta .btn-primary svg{width:14px;height:14px}.glass-navbar .commerce-header-button{padding:8px}}
+@media(max-width:1023px){.glass-navbar .container-wide{width:calc(100% - 1.25rem);max-width:none}.glass-navbar nav{gap:6px}.glass-navbar nav>div:last-child{gap:5px;min-width:0}.glass-navbar .brand-mark{flex:none;font-size:1.08rem}.glass-navbar .brand-symbol{margin-right:4px;font-size:1.45rem}.glass-navbar .project-cta{flex:none}.glass-navbar .commerce-header-button,.glass-navbar .icon-button{flex:none}.glass-navbar .mobile-nav{width:auto;max-width:none}}
+@media(min-width:1024px){.glass-navbar .mobile-menu-trigger{display:none}.glass-navbar .project-cta{display:block}}
