@@ -7,6 +7,7 @@ import './template-cms.css';
 import './aurora.css';
 import './mobile-menu.css';
 import './aurora-controls.css';
+import './reviews/reviews.css';
 import {Header} from '@/components/header';
 import {Footer} from '@/components/footer';
 import {getAppearance,getBrand,getSiteSettings} from '@/lib/site-config';
