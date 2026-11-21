@@ -28,7 +28,7 @@ export function AdminSidebar({email,logoutAction}:{email:string;logoutAction:Log
     <div className={`admin-sidebar-backdrop ${open?'is-visible':''}`} onClick={()=>setOpen(false)} aria-hidden="true"/>
     <aside className={`admin-sidebar ${open?'is-open':''} ${collapsed?'is-collapsed':''}`} aria-label="Admin navigation">
       <div className="admin-sidebar-header"><Link href="/admin" className="brand-mark" onClick={()=>setOpen(false)}><span className="brand-symbol">✳</span><span className="brand-name">NOVA<span className="text-violet-400">.</span></span></Link><button type="button" className="admin-sidebar-close" onClick={()=>setOpen(false)} aria-label="Close admin navigation"><X size={19}/></button></div>
-      <nav className="admin-sidebar-nav">{items.map(([href,label,Icon])=>{const active=activeHref===href;return <Link href={href} key={href} className={`admin-sidebar-link ${active?'is-active':''}`} aria-current={active?'page':undefined} onClick={()=>setOpen(false)}><Icon size={17} aria-hidden="true"/><span>{label}</span></Link>})}</nav>
+      <nav className="admin-sidebar-nav">{items.map(([href,label,Icon])=>{const active=activeHref===href;return <Link href={href} prefetch={false} key={href} className={`admin-sidebar-link ${active?'is-active':''}`} aria-current={active?'page':undefined} onClick={()=>setOpen(false)}><Icon size={17} aria-hidden="true"/><span>{label}</span></Link>})}</nav>
       <div className="admin-sidebar-footer"><p className="truncate text-xs text-slate-500">{email}</p><form action={logoutAction}><button className="admin-nav mt-4 w-full"><LogOut size={17}/><span>Sign out</span></button></form></div>
     </aside>
   </>;
